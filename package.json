@@ -1,0 +1,8 @@
+{
+  "name": "InceptorSchedulerProfiler",
+  "dependencies": {
+    "jquery": "^3.1.1",
+    "vis": "^4.16.1",
+    "bootstrap": "^3.3.7"
+  }
+}
