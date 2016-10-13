@@ -26,7 +26,9 @@ function addOrUpdate(hostname) {
             passwd: "123",
             status: 0,
             message: "",
+            jobIdMax: -1,
             jobCheckpoint: null,
+            stageIdMax: -1,
             stageCheckpoint: null,
             timeout: null, // the Timeout instance of setInterval,
         };
@@ -77,9 +79,30 @@ function trigger(host) {
     }
 }
 
+function assembleCollectionName(sourceId, type) {
+    return "s" + sourceId + '_' + type;
+}
+
+function updateStatus(source, status, message) {
+    source.status = status;
+    source.message = message;
+}
+
+function updateMaxJobId(source) {
+    mongo.connect(config.db, function(err, db) {
+        assert.equal(null, err);
+        var col = db.collection(cname);
+
+    })
+}
+
+/**
+ * Get job data given source host and store the data
+ * into mongodb.
+ */
 function fetchJobs(host, source) {
-    var since = "-1",
-        collection = "s" + source.id + "_jobs";
+    var since = "-1";
+    var cname = assembleCollectionName(source.id, "jobs");
 
     if (source.jobCheckpoint != null) {
         since = dateformat(source.jobCheckpoint, df);
@@ -89,50 +112,64 @@ function fetchJobs(host, source) {
     // console.log("Requesting " + api);
 
     request(api, function(error, response, body) {
-        if (error) {
-            source.status = 1;
-            source.message = error.toString();
+        assert.equal(null, error);
+        if (response.statusCode == 401) {
+            updateStatus(source, -1, "Unauthorized!");
         } else if (response.statusCode == 200) {
-            var jobs = JSON.parse(body),
-                completed = [],
-                uncompleted = [];
+            var jobs = JSON.parse(body);
+            var maxId = source.jobIdMax;
+            var insertDirect = [];
+
             console.log("Total jobs fetched: " + jobs.length);
 
             // process jobs data
             for (var i = 0; i < jobs.length; i++) {
                 var job = jobs[i];
-                var stime = job.submissionTime;
-                if (!(stime instanceof Date)) {
-                    stime = new Date(job.submissionTime);
+
+                if (job.jobId > source.jobIdMax) {
+                    source.jobIdMax = job.jobId;
                 }
+
+                var stime = job.submissionTime;
                 if (source.jobCheckpoint == null) {
                     source.jobCheckpoint = stime;
                 }
-                if (job.completionTime != null) {
-                    // completed, save to db
-                    completed.push(job);
-                } else {
+
+                if (job.completionTime == null) {
                     // record the least timestamp of uncompleted job.
                     if (stime.getTime() < source.jobCheckpoint.getTime()) {
                         source.jobCheckpoint = stime;
                     }
-                    // uncompleted, update db
-                    uncompleted.push(job);
+                }
+
+                if (job.jobId > maxId) {
+                    // obviously new job, insert directly
+                    insertDirect.push(job);
+                } else {
+                    // insert or update the doc
+                    mongo.connect(config.db, function(err, db) {
+                        assert.equal(null, err)
+                        var col = db.collection(cname);
+                        col.updateOne({ jobId: job.jobId },
+                            job, { upsert: true },
+                            function(err, res) {
+                                assert.equal(null, err);
+                                db.close();
+                            });
+
+                    })
                 }
             }
 
-            if (completed.length > 0) {
-                // bulk insert for efficiency
+            // bulk insert for efficiency
+            if (insertDirect.length > 0) {
                 mongo.connect(config.db, function(err, db) {
-                    if (!err) {
-                        var col = db.collection(collection);
-                        col.insertMany(completed, function(err, res) {
-                            db.close();
-                        });
-                    } else {
-                        source.status = 1;
-                        source.message = err.toString();
-                    }
+                    assert.equal(err, null)
+                    var col = db.collection(cname);
+                    col.insertMany(insertDirect, function(err, res) {
+                        assert.equal(err, null);
+                        db.close();
+                    });
                 });
             }
 
