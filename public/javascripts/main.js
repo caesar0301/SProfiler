@@ -18,7 +18,7 @@ function extractJobItems(jobs) {
 
         var item = {
             id: job.jobId,
-            content: job.numTasks + " tasks (" + tdelta.toFixed(3) + "s)",
+            content: "#" + job.jobId + " (" + job.numTasks + " tasks, " + tdelta.toFixed(3) + "s)",
             start: job.submissionTime,
             group: names[group]
         };

@@ -2,89 +2,87 @@
 <html>
 
 <head>
-    <title>Inceptor Scheduler Profiler</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <script src="javascripts/vis.min.js"></script>
-    <script src="javascripts/jquery.min.js"></script>
-    <script src="javascripts/bootstrap.min.js"></script>
-    <script src="javascripts/main.js"></script>
-    <link href="stylesheets/vis.min.css" rel="stylesheet" type="text/css" />
-    <link href="stylesheets/bootstrap.min.css" rel="stylesheet" type="text/css" />
-    <link href="stylesheets/bootstrap-theme.min.css" rel="stylesheet" type="text/css" />
-    <link href="stylesheets/main.css" rel="stylesheet" type="text/css" />
+  <title>Inceptor Scheduler Profiler</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <script src="javascripts/vis.min.js"></script>
+  <script src="javascripts/jquery.min.js"></script>
+  <script src="javascripts/bootstrap.min.js"></script>
+  <script src="javascripts/main.js"></script>
+  <link href="stylesheets/vis.min.css" rel="stylesheet" type="text/css" />
+  <link href="stylesheets/bootstrap.min.css" rel="stylesheet" type="text/css" />
+  <link href="stylesheets/bootstrap-theme.min.css" rel="stylesheet" type="text/css" />
+  <link href="stylesheets/main.css" rel="stylesheet" type="text/css" />
 </head>
 
 <body class="main-body">
-    <div id="wrapScreen" class="wrap-screen">
-        <header id="wrapScreenHeader">
-            <nav class="navbar navbar-inverse">
-                <div class="container-fluid">
-                    <!-- Brand and toggle get grouped for better mobile display -->
-                    <div class="navbar-header">
-                        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" aria-expanded="false">
-                            <span class="sr-only">Toggle navigation</span>
-                            <span class="icon-bar"></span>
-                            <span class="icon-bar"></span>
-                            <span class="icon-bar"></span>
-                        </button>
-                        <a class="navbar-brand" href="#">SchedProfiler</a>
-                    </div>
-                    <!-- Collect the nav links, forms, and other content for toggling -->
-                    <div class="collapse navbar-collapse" id="navbar-collapse-1">
-                        <form class="navbar-form navbar-left" role="form">
-                            <div class="input-group">
-                                <span class="input-group-addon">http://</span>
-                                <input type="text" class="form-control" id="basic-url" aria-describedby="basic-addon3" placeholder="localhost:4040">
-                                <span class="input-group-btn">
+  <div id="wrapScreen" class="wrap-screen">
+    <header id="wrapScreenHeader">
+      <nav class="navbar navbar-inverse">
+        <div class="container-fluid">
+          <!-- Brand and toggle get grouped for better mobile display -->
+          <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" aria-expanded="false">
+              <span class="sr-only">Toggle navigation</span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="#">SchedProfiler</a>
+          </div>
+          <!-- Collect the nav links, forms, and other content for toggling -->
+          <div class="collapse navbar-collapse" id="navbar-collapse-1">
+            <form class="navbar-form navbar-left" role="form">
+              <div class="input-group">
+                <span class="input-group-addon">http://</span>
+                <input type="text" class="form-control" id="basic-url" aria-describedby="basic-addon3" placeholder="localhost:4040">
+                <span class="input-group-btn">
                                 <button class="btn btn-success btn-block" type="button" id="go-now">Go!</button>
                             </span>
-                            </div>
-                        </form>
-                        <ul class="nav navbar-nav navbar-right">
-                            <li class="dropdown">
-                                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Settings <span class="caret"></span></a>
-                                <ul class="dropdown-menu">
-                                    <li><a href="#">Action</a></li>
-                                    <li role="separator" class="divider"></li>
-                                    <li><a href="#">Separated link</a></li>
-                                </ul>
-                            </li>
-                        </ul>
-                    </div>
-                    <!-- /.navbar-collapse -->
-                </div>
-                <!-- /.container-fluid -->
-            </nav>
-        </header>
-        <main id="wrapScreenMain">
-            <div id="headMainTitle">
-                <div id="HEADTITLE" style="text-align: left">
-                    <h2>Total: 1000 jobs, 2000 stages</h2>
-                </div>
-            </div>
-            <div>
-                <div id="visualization" style="height: 600px"></div>
-                <script type="text/javascript">
+              </div>
+            </form>
+            <ul class="nav navbar-nav navbar-right">
+              <li class="dropdown">
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Settings <span class="caret"></span></a>
+                <ul class="dropdown-menu">
+                  <li><a href="#">Action</a></li>
+                  <li role="separator" class="divider"></li>
+                  <li><a href="#">Separated link</a></li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+          <!-- /.navbar-collapse -->
+        </div>
+        <!-- /.container-fluid -->
+      </nav>
+    </header>
+    <main id="wrapScreenMain">
+      <div id="headMainTitle">
+        <div id="HEADTITLE" style="text-align: left">
+          <h2>Total: 1000 jobs, 2000 stages</h2>
+        </div>
+      </div>
+      <div>
+        <div id="visualization" style="height: 600px"></div>
+        <script type="text/javascript">
+        $(document).ready(function() {
+          var target = "/data/jobs2.json"
 
-                $(document).ready(function() {
-                    var target = "/data/jobs2.json"
+          $.get(target, function(response, status, xhr) {
+            if (status == "error")
+              alert("Oops!")
 
-                    $.get(target, function(response, status, xhr) {
-                        if (status == "error")
-                            alert("Oops!")
+            var height = $(document).height() -
+              $("#wrapScreenHeader").outerHeight() -
+              $("#headMainTitle").outerHeight()
 
-                        var height = $(document).height() -
-                            $("#wrapScreenHeader").outerHeight() -
-                            $("#headMainTitle").outerHeight()
-
-                        visualizeJobData("visualization", response, height + "px")
-                    });
-                });
-
-                </script>
-            </div>
-        </main>
-    </div>
+            visualizeJobData("visualization", response, height + "px")
+          });
+        });
+        </script>
+      </div>
+    </main>
+  </div>
 </body>
 
 </html>
