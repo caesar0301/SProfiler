@@ -6,9 +6,6 @@ var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var inceptor = require('./services/inceptor')
 
-// MongoDb backend
-var mongoHost = "mongodb://localhost:27017"
-
 var routes = require('./routes/index');
 
 var app = express();
@@ -59,8 +56,9 @@ app.use(function(err, req, res, next) {
 });
 
 // Start monitor on Inceptor API.
-inceptor.start(mongoHost);
-inceptor.addOrUpdate("localhost:4040/");
+inceptor.start();
+inceptor.addOrUpdate("172.16.1.51:4040");
+inceptor.addOrUpdate("localhost:4040");
 
 // setTimeout(inceptor.stop, 10000);
 
