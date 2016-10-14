@@ -7,6 +7,7 @@
   <script src="javascripts/vis.min.js"></script>
   <script src="javascripts/jquery.min.js"></script>
   <script src="javascripts/bootstrap.min.js"></script>
+  <script src="javascripts/js.cookie.js"></script>
   <script src="javascripts/main.js"></script>
   <link href="stylesheets/vis.min.css" rel="stylesheet" type="text/css" />
   <link href="stylesheets/bootstrap.min.css" rel="stylesheet" type="text/css" />
@@ -24,20 +25,17 @@
             <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" aria-expanded="false">
               <span class="sr-only">Toggle navigation</span>
               <span class="icon-bar"></span>
-              <span class="icon-bar"></span>
-              <span class="icon-bar"></span>
             </button>
-            <a class="navbar-brand" href="#">SchedProfiler</a>
+            <a class="navbar-brand" href="/">SchedProfiler</a>
           </div>
           <!-- Collect the nav links, forms, and other content for toggling -->
-          <div class="collapse navbar-collapse" id="navbar-collapse-1">
+          <div class="collapse navbar-collapse" id="nav153bar-collapse-1">
             <form class="navbar-form navbar-left" role="form">
               <div class="input-group">
-                <span class="input-group-addon">http://</span>
-                <input type="text" class="form-control" id="basic-url" aria-describedby="basic-addon3" placeholder="localhost:4040">
+                <input id="sourceInput" type="text" class="form-control" style="width:200px" placeholder="localhost:4040">
                 <span class="input-group-btn">
-                                <button class="btn btn-success btn-block" type="button" id="go-now">Go!</button>
-                            </span>
+                    <button class="btn btn-success" style="width:65px" type="button" id="gonow">Go!</button>
+                </span>
               </div>
             </form>
             <ul class="nav navbar-nav navbar-right">
@@ -78,7 +76,54 @@
 
             visualizeJobData("visualization", response, height + "px")
           });
+
+          // recover state on refresh
+          if (gonow.isBusy()) {
+            gonow.setBusy();
+          };
+
         });
+
+        // controller of button gonow.
+        var gonow = {
+          setBusy: function() {
+            // change to running state
+            $("#gonow").removeClass("btn-success")
+            $("#gonow").addClass("btn-danger").text("Stop");
+            $("#sourceInput").prop("readonly", "readonly");
+            Cookies.set("gonowClicked", "true");
+          },
+          setIdle: function() {
+            // change to idle state
+            $("#gonow").removeClass("btn-danger").addClass("btn-success").text("Go!");
+            $("#sourceInput").prop("readonly", "");
+            Cookies.set("gonowClicked", "false");
+          },
+          isBusy: function() {
+            return Cookies.get('gonowClicked') == "true";
+          }
+        }
+
+        $("#gonow").click(function() {
+          var host = $("#sourceInput").val();
+          if (host == '')
+            host = 'localhost:4040';
+          var dataForm = {
+            source: {
+              host: host,
+              action: 'register'
+            }
+          };
+          if ($("#gonow").hasClass('btn-success')) {
+            gonow.setBusy();
+          } else {
+            gonow.setIdle();
+            dataForm.source.action = "unregister";
+          }
+
+          $.post('/source', dataForm, null, "application/json");
+        });
+        </script>
         </script>
       </div>
     </main>

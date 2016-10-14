@@ -3,9 +3,10 @@ var path = require('path')
 var request = require('request');
 var dateformat = require('dateformat');
 var assert = require('assert');
-var config = require(path.join(__dirname, '../common/config'));
-var utils = require(path.join(__dirname, '../common/utils'));
-var logger = require(path.join(__dirname, '../common/logger'));
+
+var config = require('../common/config');
+var utils = require('../common/utils');
+var logger = require('../common/logger');
 
 var sourceMap = {};
 var scheduler = null,
@@ -16,10 +17,9 @@ var inceptorDb = config.db + "/inceptor";
 /**
  * add new restful source or increase counter by one.
  */
-function addOrUpdate(hostname) {
-    var host = utils.validateHost(hostname);
+function addNewSource(host) {
+    var ns = new Object();
     if (sourceMap[host] == null) {
-        var ns = new Object();
         ns.id = Object.keys(sourceMap).length;
         ns.host = host;
         ns.registers = 0;
@@ -37,9 +37,23 @@ function addOrUpdate(hostname) {
         ns.added = Date.now();
         // Add new source to list
         sourceMap[host] = ns;
+    } else {
+        ns = sourceMap[host];
     }
+    return ns;
+}
 
-    sourceMap[host].registers += 1;
+function register(hostname) {
+    var host = utils.validateHost(hostname);
+    var ns = addNewSource(host);
+    ns.registers += 1;
+}
+
+function unregister(hostname) {
+    var host = utils.validateHost(hostname);
+    if (host in sourceMap) {
+        sourceMap[host].registers -= 1;
+    }
 }
 
 /**
@@ -87,7 +101,7 @@ function doScheduler() {
         var source = sourceMap[host];
         if (source.registers <= 0) {
             logger.info("Source " + host + " removed due to zero registers.");
-            removeSource(host);
+            remove(source);
         } else {
             if (source.timeout == null) {
                 logger.info("New monitor service on " + host);
@@ -148,7 +162,7 @@ function fetchJobs(source) {
             var maxId = source.jobIdMax;
             var insertDirect = [];
 
-            logger.debug("Total jobs fetched: " + jobs.length);
+            logger.debug(jobs.length + " jobs fetched.");
 
             // process jobs data
             for (var i = 0; i < jobs.length; i++) {
@@ -212,7 +226,8 @@ function fetchStages(source) {
 var inceptor = {
     db: inceptorDb,
     sourceMap: sourceMap,
-    addOrUpdate: addOrUpdate,
+    register: register,
+    unregister: unregister,
     remove: remove,
     start: start,
     stop: stop,

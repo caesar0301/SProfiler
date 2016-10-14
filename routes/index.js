@@ -3,9 +3,9 @@ var path = require('path')
 var router = express.Router();
 
 var publicRoot = path.join(__dirname, '../public');
-var inceptor = require(path.join(__dirname, '../services/inceptor'));
-var utils = require(path.join(__dirname, '../common/utils'));
-var logger = require(path.join(__dirname, '../common/logger'));
+var inceptor = require('../services/inceptor');
+var utils = require('../common/utils');
+var logger = require('../common/logger');
 
 /**
  * Go to homepage
@@ -27,15 +27,6 @@ router.get('/sources', function(req, res) {
 });
 
 /**
- * Add a new source.
- * @param  {Object} req  request with body {"source": "hostname"}
- */
-router.post('/source', function(req, res) {
-    logger.debug(req.body)
-    res.send('POST method on /source')
-});
-
-/**
  * Get the configuration of one source, given hostname or source id.
  */
 router.get('/source/:source', function(req, res) {
@@ -44,8 +35,30 @@ router.get('/source/:source', function(req, res) {
     if (host in inceptor.sourceMap) {
         res.json(sourceInfo(inceptor.sourceMap[host]));
     } else {
-        res.status(500).json({"message": "There doesn't exist " + host});
+        res.status(500).json({ "error": "There doesn't exist " + host });
     }
+});
+
+/**
+ * Register or unregister a new source.
+ * @param  {Object} req  request with content type "application/json"
+ *                       as well as body {"source": "hostname"}.
+ */
+router.post('/source', function(req, res) {
+    console.log(req.body)
+    var host = req.body.source.host;
+    var action = req.body.source.action.toString().toLowerCase();
+    if (action == 'unregister') {
+        inceptor.unregister(host);
+        res.status(200).end();
+    } else if (action == 'register') {
+        inceptor.register(host);
+        res.status(200).end();
+    } else {
+        res.status(500)
+            .json({ "error": "unsupported action " + req.body.source.action });
+    }
+
 });
 
 function sourceInfo(s) {

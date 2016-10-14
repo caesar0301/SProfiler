@@ -18,7 +18,7 @@ app.set('view engine', 'jade');
 //app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(logger('dev'));
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -57,8 +57,7 @@ app.use(function(err, req, res, next) {
 
 // Start monitor on Inceptor API.
 inceptor.start();
-inceptor.addOrUpdate("172.16.1.51:4040");
-inceptor.addOrUpdate("localhost:4040");
+inceptor.register("172.16.1.51:4040");
 
 // setTimeout(inceptor.stop, 10000);
 
