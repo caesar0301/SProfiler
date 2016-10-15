@@ -8,12 +8,13 @@ var app = require('../app');
 var debug = require('debug')('SchedulerPerf:server');
 var http = require('http');
 var logger = require('../common/logger');
+var config = require('../common/config')
 
 /**
  * Get port from environment and store in Express.
  */
 
-var port = normalizePort(process.env.PORT || '3000');
+var port = normalizePort(process.env.PORT || config.port);
 app.set('port', port);
 
 /**
