@@ -231,15 +231,115 @@ function fetchJobs(source) {
                 });
             }
 
-            logger.debug("Checkpoint: " + dateformat(source.jobCheckpoint, df));
+            logger.debug("[Job] checkpoint: " + dateformat(source.jobCheckpoint, df));
         }
     }).auth(source.username, source.passwd, false);
 }
 
+/**
+ * Get stage data of given source host and store into mongodb.
+ */
 function fetchStages(source) {
+    var after = "-1";
+    var cname = source.stages;
+    if (source.stageCheckpoint != null) {
+        after = source.stageCheckpoint.getTime() + 1 + "L";
+    }
 
+    var api = source.host + "/api/stages?userId=" + source.username + "&details=true&afterTime=" + after;
+    logger.debug("Requesting " + api);
+
+    request(api, function(err, response, body) {
+        if (err) {
+            logger.error(err.toString());
+            return;
+        }
+        if (response.statusCode == 401) {
+            logger.error('Unauthorized!');
+            return;
+        }
+        if (response.statusCode == 200) {
+            var stages = {};
+            try {
+                stages = JSON.parse(body);
+            } catch (err) {
+                logger.error(err.toString());
+                return;
+            }
+
+            logger.debug(stages.length + " stages fetched.");
+
+            var insertBatch = [];
+            var updateCheckpoint = function(dtime) {
+                if (source.stageCheckpoint == null) {
+                    source.stageCheckpoint = dtime;
+                } else if (dtime != null && dtime.getTime() > source.stageCheckpoint.getTime()) {
+                    source.stageCheckpoint = dtime;
+                }
+            }
+            var checkpoint = source.stageCheckpoint;
+            for (var i = 0; i < stages.length; i++) {
+                var stage = stages[stages.length - i - 1];
+                stage.submissionTime = string2date(stage.submissionTime);
+                stage.completionTime = string2date(stage.completionTime);
+                if (stage.submissionTime == null) {
+                    continue;
+                }
+                if (checkpoint == null) {
+                    insertBatch.push(stage);
+                    updateCheckpoint(stage.submissionTime);
+                    updateCheckpoint(stage.completionTime);
+                    continue;
+                }
+                if (stage.submissionTime.getTime() > source.stageCheckpoint.getTime() &&
+                    stage.completionTime != null) {
+                    logger.debug("Batch insert for stage " + stage.stageId)
+                    insertBatch.push(stage);
+                } else {
+                    // perform entry-wise upsert
+                    logger.debug("Upsert stage for stage " + stage.stageId);
+                    mongo.connect(inceptorDB, function(err, db) {
+                        if (err) {
+                            logger.error(err.String());
+                            return;
+                        }
+                        db.collection(cname).updateOne({ stageId: stage.stageId },
+                            stage, { upsert: true },
+                            function(err, res) {
+                                if (err) {
+                                    logger.error(err.String());
+                                    return;
+                                }
+                                db.close();
+                            });
+                    });
+                }
+                updateCheckpoint(stage.submissionTime);
+                updateCheckpoint(stage.completionTime);
+            }
+
+            // bulk insert for efficiency
+            logger.debug(insertBatch.length + " batch inserted stages");
+            if (insertBatch.length > 0) {
+                mongo.connect(inceptorDB, function(err, db) {
+                    if (err) {
+                        logger.error(err.String());
+                        return;
+                    }
+                    db.collection(cname).insertMany(insertBatch, function(err, res) {
+                        if (err) {
+                            logger.error(err.String());
+                            return;
+                        }
+                        db.close();
+                    });
+                });
+            }
+
+            logger.debug("[Stage] checkpoint: " + dateformat(source.stageCheckpoint, df));
+        }
+    }).auth(source.username, source.passwd, false);
 }
-
 var inceptor = {
     db: inceptorDB,
     sourceMap: sourceMap,
