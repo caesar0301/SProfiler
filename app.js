@@ -57,8 +57,7 @@ app.use(function(err, req, res, next) {
 
 // Start monitor on Inceptor API.
 inceptor.start();
-inceptor.register("172.16.1.51:4040");
-
+// inceptor.register("172.16.1.51:4040");
 // setTimeout(inceptor.stop, 10000);
 
 module.exports = app;

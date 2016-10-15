@@ -1,6 +1,8 @@
 
 var globalConfig = {
     port: 5050,
+    username: 'chenxm',
+    passwd: '123',
     interval: 5000,
     db: "mongodb://localhost:27017",
 }

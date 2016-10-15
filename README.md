@@ -11,7 +11,7 @@ A realtime profiling tool to monitor scheduler performace of Inceptor engine.
 * Install node.js and npm to run backend service.
 
 ``` bash
-sudo apt install nodejs npm
+sudo apt install nodejs npm mongodb-server mongodb-client
 
 ```
 

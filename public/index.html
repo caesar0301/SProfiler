@@ -129,8 +129,11 @@
           $.post('/source', dataForm, null, "application/json");
         });
 
-        $("#sourceInput").keypress(function() {
-          $("#gonow").click()
+        $("#sourceInput").bind('keypress', function(e) {
+          var code = e.keyCode || e.which;
+          if (code == 13) { //Enter keycode
+            $("#gonow").click()
+          }
         });
         </script>
         </script>

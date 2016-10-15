@@ -12,7 +12,7 @@ var sourceMap = {};
 var scheduler = null,
     schedulerInterval = 500;
 var df = "yyyymmddHHMMss";
-var inceptorDb = config.db + "/inceptor";
+var inceptorDB = config.db + "/inceptor";
 
 /**
  * add new restful source or increase counter by one.
@@ -23,15 +23,13 @@ function addNewSource(host) {
         ns.id = Object.keys(sourceMap).length;
         ns.host = host;
         ns.registers = 0;
-        ns.username = "chenxm";
-        ns.passwd = "123";
+        ns.username = config.username;
+        ns.passwd = config.passwd;
         ns.status = 0;
         ns.message = "";
         ns.jobs = "S" + ns.id + "_JOBS";
         ns.stages = "S" + ns.id + "_STAGES";
-        ns.jobIdMax = -1;
         ns.jobCheckpoint = null;
-        ns.stageIdMax = -1;
         ns.stageCheckpoint = null;
         ns.timeout = null; // the Timeout instance of setInterval
         ns.added = Date.now();
@@ -60,10 +58,13 @@ function unregister(hostname) {
  * Remove idle host from resource pool
  */
 function remove(source) {
-    var s = sourceMap[source.host];
-    if (s.registers > 0) {
-        throw "Failed to remove busy source " + hostname;
+    if (source.registers > 0) {
+        logger.error("Failed to remove busy source " + source.host);
     } else {
+        if (source.timeout != null) {
+            logger.info("Stopped monitor service on " + source.host);
+            clearInterval(source.timeout);
+        }
         delete sourceMap[source.host];
     }
 }
@@ -115,26 +116,16 @@ function doScheduler() {
  * Do the dirty job to fetch data from remote REST.
  */
 function trigger(source) {
-    logger.debug("Fetch new data from " + source.host);
     fetchJobs(source);
     fetchStages(source);
 }
 
-function updateStatus(source, status, message) {
-    source.status = status;
-    source.message = message;
-    if (status != 0) {
-        logger.error(message);
-    } else {
-        logger.info(message);
+function string2date(tstr) {
+    if (tstr != null) {
+        var n = tstr.replace(/(\.\d{3})(\w+)/, "$1")
+        return new Date(n + "+0800"); // Beijing time
     }
-}
-
-function updateMaxJobId(source) {
-    mongo.connect(inceptorDb, function(err, db) {
-        assert.equal(null, err);
-        var col = db.collection(cname);
-    })
+    return tstr;
 }
 
 /**
@@ -142,79 +133,105 @@ function updateMaxJobId(source) {
  * into mongodb.
  */
 function fetchJobs(source) {
-    var since = "-1";
+    var after = "-1";
     var cname = source.jobs;
-
     if (source.jobCheckpoint != null) {
-        since = dateformat(source.jobCheckpoint, df);
+        after = source.jobCheckpoint.getTime() + 1 + "L";
     }
 
-    var api = source.host + "/api/jobs?userId=" + source.username + "&sinceTime=" + since;
+    var api = source.host + "/api/jobs?userId=" + source.username + "&afterTime=" + after;
     logger.debug("Requesting " + api);
 
-    request(api, function(error, response, body) {
-        if (error) {
-            updateStatus(source, -1, error.toString());
-        } else if (response.statusCode == 401) {
-            updateStatus(source, -1, "Unauthorized!");
-        } else if (response.statusCode == 200) {
-            var jobs = JSON.parse(body);
-            var maxId = source.jobIdMax;
-            var insertDirect = [];
+    request(api, function(err, response, body) {
+        if (err) {
+            logger.error(err.toString());
+            return;
+        }
+        if (response.statusCode == 401) {
+            logger.error('Unauthorized!');
+            return;
+        }
+        if (response.statusCode == 200) {
+            var jobs = {};
+            try {
+                jobs = JSON.parse(body);
+            } catch (err) {
+                logger.error(err.toString());
+                return;
+            }
 
             logger.debug(jobs.length + " jobs fetched.");
 
             // process jobs data
-            for (var i = 0; i < jobs.length; i++) {
-                var job = jobs[i];
-
-                if (job.jobId > source.jobIdMax) {
-                    source.jobIdMax = job.jobId;
-                }
-
-                var stime = job.submissionTime;
+            var insertBatch = [];
+            var updateCheckpoint = function(dtime) {
+                // record the latest timestamp of completed job.
                 if (source.jobCheckpoint == null) {
-                    source.jobCheckpoint = stime;
+                    source.jobCheckpoint = dtime;
+                } else if (dtime != null && dtime.getTime() > source.jobCheckpoint.getTime()) {
+                    source.jobCheckpoint = dtime;
                 }
-
-                if (job.completionTime == null) {
-                    // record the least timestamp of uncompleted job.
-                    if (stime.getTime() < source.jobCheckpoint.getTime()) {
-                        source.jobCheckpoint = stime;
-                    }
+            }
+            var checkpoint = source.jobCheckpoint;
+            for (var i = 0; i < jobs.length; i++) {
+                var job = jobs[jobs.length - i - 1];
+                job.submissionTime = string2date(job.submissionTime);
+                job.completionTime = string2date(job.completionTime);
+                if (job.submissionTime == null) {
+                    continue;
                 }
-
-                if (job.jobId > maxId) {
-                    // obviously new job, insert directly
-                    insertDirect.push(job);
+                if (checkpoint == null) {
+                    insertBatch.push(job);
+                    updateCheckpoint(job.submissionTime); // to avoid duplicated on-going jobs
+                    updateCheckpoint(job.completionTime);
+                    continue;
+                }
+                if (job.submissionTime.getTime() > source.jobCheckpoint.getTime() &&
+                    job.completionTime != null) {
+                    logger.debug("Batch insert for job " + job.jobId)
+                    insertBatch.push(job);
                 } else {
-                    // insert or update the doc
-                    mongo.connect(inceptorDb, function(err, db) {
-                        assert.equal(null, err)
-                        var col = db.collection(cname);
-                        col.updateOne({ jobId: job.jobId },
+                    // perform entry-wise upsert
+                    logger.debug("Upsert job for job " + job.jobId);
+                    mongo.connect(inceptorDB, function(err, db) {
+                        if (err) {
+                            logger.error(err.String());
+                            return;
+                        }
+                        db.collection(cname).updateOne({ jobId: job.jobId },
                             job, { upsert: true },
                             function(err, res) {
-                                assert.equal(null, err);
+                                if (err) {
+                                    logger.error(err.String());
+                                    return;
+                                }
                                 db.close();
                             });
                     });
                 }
+                updateCheckpoint(job.submissionTime);
+                updateCheckpoint(job.completionTime);
             }
 
             // bulk insert for efficiency
-            if (insertDirect.length > 0) {
-                mongo.connect(inceptorDb, function(err, db) {
-                    assert.equal(err, null)
-                    var col = db.collection(cname);
-                    col.insertMany(insertDirect, function(err, res) {
-                        assert.equal(err, null);
+            logger.debug(insertBatch.length + " batch inserted jobs");
+            if (insertBatch.length > 0) {
+                mongo.connect(inceptorDB, function(err, db) {
+                    if (err) {
+                        logger.error(err.String());
+                        return;
+                    }
+                    db.collection(cname).insertMany(insertBatch, function(err, res) {
+                        if (err) {
+                            logger.error(err.String());
+                            return;
+                        }
                         db.close();
                     });
                 });
             }
 
-            logger.debug("Checkpoint: " + source.jobCheckpoint);
+            logger.debug("Checkpoint: " + dateformat(source.jobCheckpoint, df));
         }
     }).auth(source.username, source.passwd, false);
 }
@@ -224,7 +241,7 @@ function fetchStages(source) {
 }
 
 var inceptor = {
-    db: inceptorDb,
+    db: inceptorDB,
     sourceMap: sourceMap,
     register: register,
     unregister: unregister,
