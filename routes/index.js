@@ -2,7 +2,6 @@ var express = require('express');
 var path = require('path')
 var router = express.Router();
 
-var publicRoot = path.join(__dirname, '../public');
 var inceptor = require('../services/inceptor');
 var utils = require('../common/utils');
 var logger = require('../common/logger');
@@ -11,7 +10,7 @@ var logger = require('../common/logger');
  * Go to homepage
  */
 router.get('/', function(req, res, next) {
-    res.sendPath(publicRoot + '/index.html');
+    res.sendPath('../public/index.html');
 });
 
 /**

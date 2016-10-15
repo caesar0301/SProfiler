@@ -8,10 +8,12 @@
   <script src="javascripts/jquery.min.js"></script>
   <script src="javascripts/bootstrap.min.js"></script>
   <script src="javascripts/js.cookie.js"></script>
+  <script src="javascripts/jquery.toastmessage.js"></script>
   <script src="javascripts/main.js"></script>
   <link href="stylesheets/vis.min.css" rel="stylesheet" type="text/css" />
   <link href="stylesheets/bootstrap.min.css" rel="stylesheet" type="text/css" />
   <link href="stylesheets/bootstrap-theme.min.css" rel="stylesheet" type="text/css" />
+  <link href="stylesheets/jquery.toastmessage.css" rel="stylesheet" type="text/css" />
   <link href="stylesheets/main.css" rel="stylesheet" type="text/css" />
 </head>
 
@@ -40,11 +42,9 @@
             </form>
             <ul class="nav navbar-nav navbar-right">
               <li class="dropdown">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Settings <span class="caret"></span></a>
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Sources <span class="caret"></span></a>
                 <ul class="dropdown-menu">
-                  <li><a href="#">Action</a></li>
-                  <li role="separator" class="divider"></li>
-                  <li><a href="#">Separated link</a></li>
+                  <li><a href="/sources">All</a></li>
                 </ul>
               </li>
             </ul>
@@ -57,7 +57,7 @@
     <main id="wrapScreenMain">
       <div id="headMainTitle">
         <div id="HEADTITLE" style="text-align: left">
-          <h2>Total: 1000 jobs, 2000 stages</h2>
+          <h3>Total: 1000 jobs, 2000 stages</h3>
         </div>
       </div>
       <div>
@@ -106,22 +106,31 @@
 
         $("#gonow").click(function() {
           var host = $("#sourceInput").val();
-          if (host == '')
+          if (host == '') {
             host = 'localhost:4040';
+          }
+
           var dataForm = {
             source: {
               host: host,
               action: 'register'
             }
           };
+
           if ($("#gonow").hasClass('btn-success')) {
             gonow.setBusy();
+            $().toastmessage('showNoticeToast', 'Start listening on ' + host);
           } else {
             gonow.setIdle();
             dataForm.source.action = "unregister";
+            $().toastmessage('showNoticeToast', 'Stop listening on ' + host);
           }
 
           $.post('/source', dataForm, null, "application/json");
+        });
+
+        $("#sourceInput").keypress(function() {
+          $("#gonow").click()
         });
         </script>
         </script>
