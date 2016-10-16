@@ -23,7 +23,7 @@ router.get('/sources', function(req, res) {
     var sources = [];
     for (host in inceptor.sourceMap) {
         var s = inceptor.sourceMap[host];
-        sources.push(sourceInfo(s));
+        sources.push(inceptor.sourceInfo(s));
     };
     res.json(sources);
 });
@@ -35,7 +35,7 @@ router.get('/source/:source', function(req, res) {
     var host = decodeURIComponent(req.params['source']);
     host = utils.validateHost(host);
     if (host in inceptor.sourceMap) {
-        res.json(sourceInfo(inceptor.sourceMap[host]));
+        res.json(inceptor.sourceInfo(inceptor.sourceMap[host]));
     } else {
         res.status(500).json({ "error": "There doesn't exist " + host });
     }
@@ -107,24 +107,5 @@ router.get('/source/:source/stages', function(req, res) {
         res.status(500).json({ "error": "There doesn't exist " + host });
     }
 });
-
-function sourceInfo(s) {
-    return {
-        id: s.id,
-        host: s.host,
-        registers: s.registers,
-        username: s.username,
-        passwd: "***",
-        status: s.status,
-        message: s.message,
-        jobs: s.jobs,
-        stages: s.stages,
-        jobIdMax: s.jobIdMax,
-        stageIdMax: s.stageIdMax,
-        jobCheckpoint: s.jobCheckpoint,
-        stageCheckpoint: s.stageCheckpoint,
-        added: s.added,
-    }
-}
 
 module.exports = router;
