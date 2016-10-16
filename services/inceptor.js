@@ -85,6 +85,9 @@ function loadSystemContext() {
             if (doc != null) {
                 context = doc;
                 sourceMap = context.sources;
+                for (host in sourceMap) {
+                    sourceMap[host].active = false;
+                }
                 logger.info("System context configurations loaded.");
             } else {
                 context = {
@@ -406,9 +409,27 @@ function sourceInfo(s) {
     }
 }
 
+function getSources() {
+    var sources = [];
+    for (host in sourceMap) {
+        var s = sourceMap[host];
+        sources.push(sourceInfo(s));
+    };
+    return sources;
+}
+
+function getSource(host) {
+    if (host in sourceMap) {
+        return sourceInfo(sourceMap[host]);
+    } else {
+        return null;
+    }
+}
+
 var inceptor = {
     db: inceptorDB,
-    sourceMap: sourceMap,
+    getSources: getSources,
+    getSource: getSource,
     register: register,
     unregister: unregister,
     remove: remove,

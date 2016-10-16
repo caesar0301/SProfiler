@@ -55,35 +55,16 @@
       </nav>
     </header>
     <main id="wrapScreenMain">
-      <div id="headMainTitle">
+      <!--       <div id="headMainTitle">
         <div id="HEADTITLE" style="text-align: left">
           <h3>Total: 1000 jobs, 2000 stages</h3>
         </div>
+      </div> -->
+      <div id="eventLogger">
       </div>
       <div>
         <div id="visualization" style="height: 600px"></div>
         <script type="text/javascript">
-        $(document).ready(function() {
-          var target = "/data/jobs2.json"
-
-          $.get(target, function(response, status, xhr) {
-            if (status == "error")
-              alert("Oops!")
-
-            var height = $(document).height() -
-              $("#wrapScreenHeader").outerHeight() -
-              $("#headMainTitle").outerHeight()
-
-            visualizeJobData("visualization", response, height + "px")
-          });
-
-          // recover state on refresh
-          if (gonow.isBusy()) {
-            gonow.setBusy();
-          };
-
-        });
-
         // controller of button gonow.
         var gonow = {
           setBusy: function() {
@@ -105,10 +86,8 @@
         }
 
         $("#gonow").click(function() {
-          var host = $("#sourceInput").val();
-          if (host == '') {
-            host = 'localhost:4040';
-          }
+          var host = $("#sourceInput").val() == '' ?
+            $("#sourceInput").prop('placeholder') : $("#sourceInput").val()
 
           var dataForm = {
             source: {
@@ -135,6 +114,26 @@
             $("#gonow").click()
           }
         });
+
+        var host = "http://localhost:4040"
+        var target = "/source/" + encodeURIComponent(host) + "/jobs";
+
+        $.get(target, function(response, status, xhr) {
+            console.log(response)
+          if (status == "error")
+            alert("Oops!")
+
+          var height = $(document).height() -
+            $("#wrapScreenHeader").outerHeight() -
+            $("#headMainTitle").outerHeight()
+
+          visualizeJobData("visualization", response, height + "px")
+        });
+
+        // recover state on refresh
+        if (gonow.isBusy()) {
+          gonow.setBusy();
+        };
         </script>
         </script>
       </div>

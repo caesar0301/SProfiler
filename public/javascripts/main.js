@@ -14,17 +14,19 @@ function extractJobItems(jobs) {
             names[group] = Object.keys(names).length
         }
 
-        var tdelta = Math.abs(new Date(job.submissionTime) - new Date(job.completionTime)) / 1000
-
         var item = {
             id: job.jobId,
-            content: "#" + job.jobId + " (" + job.numTasks + " tasks, " + tdelta.toFixed(3) + "s)",
+            content: "#" + job.jobId + " (running)",
             start: job.submissionTime,
-            group: names[group]
+            group: names[group],
+            type: "box",
         };
 
         if (job.completionTime != null) {
             item.end = job.completionTime;
+            item.type = "range";
+            var tdelta = Math.abs(new Date(job.submissionTime) - new Date(job.completionTime)) / 1000;
+            item.content = "#" + job.jobId + " (" + job.numTasks + " tasks, " + tdelta.toFixed(3) + "s)";
         }
 
         items.push(item);
@@ -48,14 +50,15 @@ function visualizeJobData(ele, data, height) {
     // Create a DataSet (allows two way data-binding)
     var res = extractJobItems(data);
 
+    console.log(res)
+
     // Configuration for the Timeline
     var options = {
         height: height,
-        minHeight: "250px",
+        minHeight: "400px",
         stack: true,
         showMajorLabels: true,
         showCurrentTime: true,
-        type: 'range',
         format: {
             minorLabels: {
                 millisecond: 'SSS',

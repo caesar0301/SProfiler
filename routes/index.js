@@ -20,12 +20,7 @@ router.get('/', function(req, res, next) {
  * A list of source configurations.
  */
 router.get('/sources', function(req, res) {
-    var sources = [];
-    for (host in inceptor.sourceMap) {
-        var s = inceptor.sourceMap[host];
-        sources.push(inceptor.sourceInfo(s));
-    };
-    res.json(sources);
+    res.json(inceptor.getSources());
 });
 
 /**
@@ -34,8 +29,9 @@ router.get('/sources', function(req, res) {
 router.get('/source/:source', function(req, res) {
     var host = decodeURIComponent(req.params['source']);
     host = utils.validateHost(host);
-    if (host in inceptor.sourceMap) {
-        res.json(inceptor.sourceInfo(inceptor.sourceMap[host]));
+    var source = inceptor.getSource(host);
+    if (source != null) {
+        res.json(source);
     } else {
         res.status(500).json({ "error": "There doesn't exist " + host });
     }
@@ -83,8 +79,8 @@ function findAllDocs(db, collection, callback) {
 router.get('/source/:source/jobs', function(req, res) {
     var host = decodeURIComponent(req.params['source']);
     host = utils.validateHost(host);
-    if (host in inceptor.sourceMap) {
-        var source = inceptor.sourceMap[host];
+    var source = inceptor.getSource(host);
+    if (source != null) {
         var collection = source.jobs;
         findAllDocs(inceptorDB, collection, function(docs) {
             res.json(docs);
@@ -97,8 +93,8 @@ router.get('/source/:source/jobs', function(req, res) {
 router.get('/source/:source/stages', function(req, res) {
     var host = decodeURIComponent(req.params['source']);
     host = utils.validateHost(host);
-    if (host in inceptor.sourceMap) {
-        var source = inceptor.sourceMap[host];
+    var source = inceptor.getSource(host);
+    if (source != null) {
         var collection = source.stages;
         findAllDocs(inceptorDB, collection, function(docs) {
             res.json(docs);
