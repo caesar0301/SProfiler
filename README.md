@@ -3,6 +3,11 @@ SchedProfiler
 
 A realtime profiling tool to monitor scheduler performace of Inceptor engine.
 
+# Prerequirements
+
+* Inceptor REST API version > **1.0.0** (Check [http://hostname:4040/api/version](http://hostname:4040/api/version))
+
+
 
 # Quick Start
 

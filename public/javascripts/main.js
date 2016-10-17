@@ -50,12 +50,13 @@ function visualizeJobData(ele, data, height) {
     // Create a DataSet (allows two way data-binding)
     var res = extractJobItems(data);
 
-    console.log(res)
+    console.log(res);
+    console.log(height);
 
     // Configuration for the Timeline
     var options = {
         height: height,
-        minHeight: "400px",
+        minHeight: height,
         stack: true,
         showMajorLabels: true,
         showCurrentTime: true,
@@ -82,6 +83,7 @@ function visualizeJobData(ele, data, height) {
     // Create a Timeline
     var timeline = new vis.Timeline(container);
     timeline.setOptions(options);
-    timeline.setGroups(new vis.DataSet(res.g));
-    timeline.setItems(new vis.DataSet(res.i));
+
+
+    return timeline;
 }

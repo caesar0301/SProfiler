@@ -55,89 +55,130 @@
       </nav>
     </header>
     <main id="wrapScreenMain">
-      <!--       <div id="headMainTitle">
+      <div id="headMainTitle">
         <div id="HEADTITLE" style="text-align: left">
           <h3>Total: 1000 jobs, 2000 stages</h3>
         </div>
-      </div> -->
-      <div id="eventLogger">
       </div>
       <div>
         <div id="visualization" style="height: 600px"></div>
-        <script type="text/javascript">
-        // controller of button gonow.
-        var gonow = {
-          setBusy: function() {
-            // change to running state
-            $("#gonow").removeClass("btn-success")
-            $("#gonow").addClass("btn-danger").text("Stop");
-            $("#sourceInput").prop("readonly", "readonly");
-            Cookies.set("gonowClicked", "true");
-          },
-          setIdle: function() {
-            // change to idle state
-            $("#gonow").removeClass("btn-danger").addClass("btn-success").text("Go!");
-            $("#sourceInput").prop("readonly", "");
-            Cookies.set("gonowClicked", "false");
-          },
-          isBusy: function() {
-            return Cookies.get('gonowClicked') == "true";
-          }
-        }
-
-        $("#gonow").click(function() {
-          var host = $("#sourceInput").val() == '' ?
-            $("#sourceInput").prop('placeholder') : $("#sourceInput").val()
-
-          var dataForm = {
-            source: {
-              host: host,
-              action: 'register'
-            }
-          };
-
-          if ($("#gonow").hasClass('btn-success')) {
-            gonow.setBusy();
-            $().toastmessage('showNoticeToast', 'Start listening on ' + host);
-          } else {
-            gonow.setIdle();
-            dataForm.source.action = "unregister";
-            $().toastmessage('showNoticeToast', 'Stop listening on ' + host);
-          }
-
-          $.post('/source', dataForm, null, "application/json");
-        });
-
-        $("#sourceInput").bind('keypress', function(e) {
-          var code = e.keyCode || e.which;
-          if (code == 13) { //Enter keycode
-            $("#gonow").click()
-          }
-        });
-
-        var host = "http://localhost:4040"
-        var target = "/source/" + encodeURIComponent(host) + "/jobs";
-
-        $.get(target, function(response, status, xhr) {
-            console.log(response)
-          if (status == "error")
-            alert("Oops!")
-
-          var height = $(document).height() -
-            $("#wrapScreenHeader").outerHeight() -
-            $("#headMainTitle").outerHeight()
-
-          visualizeJobData("visualization", response, height + "px")
-        });
-
-        // recover state on refresh
-        if (gonow.isBusy()) {
-          gonow.setBusy();
-        };
-        </script>
-        </script>
       </div>
     </main>
+    <script type="text/javascript">
+    var gonow = {
+      setBusy: function(host) {
+        // change to running state
+        $("#gonow").removeClass("btn-success")
+        $("#gonow").addClass("btn-danger").text("Stop");
+        $("#sourceInput").prop("readonly", "readonly");
+        Cookies.set("gonowClicked", "true");
+        Cookies.set("activeSource", host);
+        addTimelineData(host);
+      },
+      setIdle: function() {
+        // change to idle state
+        $("#gonow").removeClass("btn-danger").addClass("btn-success").text("Go!");
+        $("#sourceInput").prop("readonly", "");
+        Cookies.set("gonowClicked", "false");
+        Cookies.set("activeSource", null);
+      },
+      isBusy: function() {
+        return Cookies.get('gonowClicked') == "true";
+      }
+    };
+
+    // recover state on refresh
+    if (gonow.isBusy()) {
+      gonow.setBusy(Cookies.get("activeSource"));
+    };
+
+    // GoNow button
+    $("#gonow").click(function() {
+      var host = $("#sourceInput").val() == '' ?
+        $("#sourceInput").prop('placeholder') : $("#sourceInput").val()
+      var dataForm = {
+        source: {
+          host: host,
+          action: 'register'
+        }
+      };
+      if ($("#gonow").hasClass('btn-success')) {
+        gonow.setBusy(host);
+        $().toastmessage('showNoticeToast', 'Start listening on ' + host);
+      } else {
+        gonow.setIdle();
+        dataForm.source.action = "unregister";
+        $().toastmessage('showNoticeToast', 'Stop listening on ' + host);
+      }
+      // register new source
+      $.post('/source', dataForm, null, "application/json");
+    });
+
+    $("#sourceInput").bind('keypress', function(e) {
+      var code = e.keyCode || e.which;
+      if (code == 13) { //Enter keycode
+        $("#gonow").click()
+      }
+    });
+
+    var timeline = createTimeline("visualization");
+
+    function assembleJobUrl(host) {
+      return "/source/" + encodeURIComponent(host) + "/jobs";
+    }
+
+    function createTimeline(container) {
+      // DOM element where the Timeline will be attached
+      var ele = document.getElementById(container);
+      var height = ($(document).height() - $("#wrapScreenHeader").outerHeight() - $("#headMainTitle").outerHeight()) + 'px';
+      console.log(height);
+      // Configuration for the Timeline
+      var options = {
+        height: height,
+        minHeight: height,
+        stack: true,
+        showMajorLabels: true,
+        showCurrentTime: true,
+        format: {
+          minorLabels: {
+            millisecond: 'SSS',
+            second: 'ss',
+            minute: 'HH:mm',
+            hour: 'HH:mm',
+          },
+          majorLabels: {
+            millisecond: 'YY-MM-DD HH:mm:ss',
+            second: 'YYYY-MM-DD HH:mm',
+            minute: 'YYYY-MM-DD',
+            hour: 'YYYY-MM-DD',
+          }
+        },
+        orientation: {
+          axis: 'top',
+          item: 'top',
+        },
+      };
+      // Create a Timeline
+      var timeline = new vis.Timeline(ele);
+      timeline.setOptions(options);
+      return timeline;
+    }
+
+    function addTimelineData(targetUrl) {
+      $.get(assembleJobUrl(targetUrl), function(response, status, xhr) {
+        var res = extractJobItems(response);
+        timeline.setGroups(new vis.DataSet(res.g));
+        timeline.setItems(new vis.DataSet(res.i));
+      });
+    };
+
+    console.log("window: " + timeline.getWindow())
+    timeline.moveTo(Date.now())
+
+    timeline.on("rangechanged", function(props) {
+        console.log(props)
+    })
+    </script>
   </div>
 </body>
 

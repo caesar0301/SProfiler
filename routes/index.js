@@ -43,7 +43,6 @@ router.get('/source/:source', function(req, res) {
  *                       as well as body {"source": "hostname"}.
  */
 router.post('/source', function(req, res) {
-    console.log(req.body)
     var host = req.body.source.host;
     var action = req.body.source.action.toString().toLowerCase();
     if (action == 'unregister') {
