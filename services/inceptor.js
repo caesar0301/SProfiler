@@ -219,7 +219,7 @@ function trigger(source) {
         fetchJobs(source);
         fetchStages(source);
     } catch (err) {
-        logger.log(err.toString());
+        logger.error(err.toString());
     }
 }
 
@@ -247,7 +247,7 @@ function fetchJobs(source) {
 
     request(api, function(err, response, body) {
         if (err) {
-            throw err;
+            logger.error(err.toString()); return;
         }
         if (response.statusCode == 401) {
             logger.error('Unauthorized!');
@@ -258,7 +258,7 @@ function fetchJobs(source) {
             try {
                 jobs = JSON.parse(body);
             } catch (err) {
-                throw err;
+                logger.error(err.toString()); return;
             }
 
             debug(jobs.length + " jobs fetched (" + source.user + ")");
@@ -310,9 +310,9 @@ function fetchJobs(source) {
             if (insertBatch.length > 0) {
                 debug(insertBatch.length + " batch inserted jobs");
                 mongo.connect(inceptorDB, function(err, db) {
-                    if (err) { throw err; }
+                    if (err) { logger.error(err.toString()); return; }
                     db.collection(cname).insertMany(insertBatch, function(err, res) {
-                        if (err) { throw err; }
+                        if (err) { logger.error(err.toString()); return; }
                         db.close();
                     });
                 });
@@ -338,7 +338,7 @@ function fetchStages(source) {
 
     request(api, function(err, response, body) {
         if (err) {
-            throw err;
+            logger.error(err.toString()); return;
         }
         if (response.statusCode == 401) {
             logger.error('Unauthorized!');
@@ -349,7 +349,7 @@ function fetchStages(source) {
             try {
                 stages = JSON.parse(body);
             } catch (err) {
-                throw err;
+                logger.error(err.toString()); return;
             }
 
             debug(stages.length + " stages fetched (" + source.user + ")");
@@ -401,9 +401,9 @@ function fetchStages(source) {
             if (insertBatch.length > 0) {
                 debug(insertBatch.length + " batch inserted stages");
                 mongo.connect(inceptorDB, function(err, db) {
-                    if (err) { throw err; }
+                    if (err) { logger.error(err.toString()); return; }
                     db.collection(cname).insertMany(insertBatch, function(err, res) {
-                        if (err) { throw err; }
+                        if (err) { logger.error(err.toString()); return; }
                         db.close();
                     });
                 });
