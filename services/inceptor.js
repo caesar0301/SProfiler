@@ -48,7 +48,7 @@ function dumpSystemContext() {
     var dump = new Object();
     dump.sources = {};
     for (host in sourceMap) {
-        dump.sources[host] = sourceInfo(sourceMap[host], false);
+        dump.sources[host] = sourceInfo(sourceMap[host], true);
     }
     mongo.connect(inceptorDB, function(err, db) {
         if (err) {
@@ -69,13 +69,16 @@ function register(hostname) {
     var host = utils.validateHost(hostname);
     var ns = addNewSource(host, config.user, config.passwd);
     ns.registers += 1;
+    return sourceInfo(ns, false);
 }
 
 function unregister(hostname) {
     var host = utils.validateHost(hostname);
     if (host in sourceMap && sourceMap[host].active) {
         sourceMap[host].registers -= 1;
-    }
+        return sourceInfo(sourceMap[host], false);
+    };
+    return null;
 }
 
 /**
@@ -127,37 +130,32 @@ function remove(source) {
     }
 }
 
-function sourceInfo(s, encryptPassword) {
-    return {
-        id: s.id,
-        host: s.host,
-        user: s.user,
-        passwd: (encryptPassword ? "******" : s.passwd),
-        registers: s.registers,
-        jobs: s.jobs,
-        stages: s.stages,
-        jobCheckpoint: s.jobCheckpoint,
-        stageCheckpoint: s.stageCheckpoint,
-        added: s.added,
-        active: s.active
-    }
-}
-
 function getSources() {
     var sources = [];
     for (host in sourceMap) {
         var s = sourceMap[host];
-        sources.push(sourceInfo(s, true));
+        sources.push(sourceInfo(s, false));
     };
     return sources;
 }
 
 function getSource(host) {
-    if (host in sourceMap) {
-        return sourceInfo(sourceMap[host], true);
+    var h = utils.validateHost(host);
+    if (h in sourceMap) {
+        return sourceInfo(sourceMap[h], false);
     } else {
         return null;
     }
+}
+
+function getSourceById(id) {
+    for (host in sourceMap) {
+        var s = sourceMap[host];
+        if (s.id.toString() == id.toString()) {
+            return sourceInfo(s, false);
+        }
+    }
+    return null;
 }
 
 /**
@@ -223,14 +221,6 @@ function trigger(source) {
     }
 }
 
-function string2date(tstr) {
-    if (tstr != null) {
-        var n = tstr.replace(/(\.\d{3})(\w+)/, "$1")
-        return new Date(n + "+0800"); // Beijing time
-    }
-    return tstr;
-}
-
 /**
  * Get job data given source host and store the data
  * into mongodb.
@@ -245,9 +235,11 @@ function fetchJobs(source) {
     var api = source.host + "/api/jobs?userId=" + source.user + "&afterTime=" + after;
     debug(api);
 
+
     request(api, function(err, response, body) {
         if (err) {
-            logger.error(err.toString()); return;
+            logger.error(err.toString());
+            return;
         }
         if (response.statusCode == 401) {
             logger.error('Unauthorized!');
@@ -258,7 +250,8 @@ function fetchJobs(source) {
             try {
                 jobs = JSON.parse(body);
             } catch (err) {
-                logger.error(err.toString()); return;
+                logger.error(err.toString());
+                return;
             }
 
             debug(jobs.length + " jobs fetched (" + source.user + ")");
@@ -277,8 +270,8 @@ function fetchJobs(source) {
             var checkpoint = source.jobCheckpoint;
             for (var i = 0; i < jobs.length; i++) {
                 var job = jobs[jobs.length - i - 1];
-                job.submissionTime = string2date(job.submissionTime);
-                job.completionTime = string2date(job.completionTime);
+                job.submissionTime = new Date(job.submissionTime);
+                job.completionTime = new Date(job.completionTime);
                 if (job.submissionTime == null) {
                     continue;
                 }
@@ -310,9 +303,11 @@ function fetchJobs(source) {
             if (insertBatch.length > 0) {
                 debug(insertBatch.length + " batch inserted jobs");
                 mongo.connect(inceptorDB, function(err, db) {
-                    if (err) { logger.error(err.toString()); return; }
+                    if (err) { logger.error(err.toString());
+                        return; }
                     db.collection(cname).insertMany(insertBatch, function(err, res) {
-                        if (err) { logger.error(err.toString()); return; }
+                        if (err) { logger.error(err.toString());
+                            return; }
                         db.close();
                     });
                 });
@@ -333,12 +328,13 @@ function fetchStages(source) {
     if (source.stageCheckpoint != null) {
         after = source.stageCheckpoint.getTime() + 1 + "L"; // offset 1ms
     }
-    var api = source.host + "/api/stages?userId=" + source.user + "&afterTime=" + after;
+    var api = source.host + "/api/stages?userId=" + source.user + "&details=true&afterTime=" + after;
     debug(api);
 
     request(api, function(err, response, body) {
         if (err) {
-            logger.error(err.toString()); return;
+            logger.error(err.toString());
+            return;
         }
         if (response.statusCode == 401) {
             logger.error('Unauthorized!');
@@ -349,7 +345,8 @@ function fetchStages(source) {
             try {
                 stages = JSON.parse(body);
             } catch (err) {
-                logger.error(err.toString()); return;
+                logger.error(err.toString());
+                return;
             }
 
             debug(stages.length + " stages fetched (" + source.user + ")");
@@ -368,8 +365,8 @@ function fetchStages(source) {
             var checkpoint = source.stageCheckpoint;
             for (var i = 0; i < stages.length; i++) {
                 var stage = stages[stages.length - i - 1];
-                stage.submissionTime = string2date(stage.submissionTime);
-                stage.completionTime = string2date(stage.completionTime);
+                stage.submissionTime = new Date(stage.submissionTime);
+                stage.completionTime = new Date(stage.completionTime);
                 if (stage.submissionTime == null) {
                     continue;
                 }
@@ -401,9 +398,11 @@ function fetchStages(source) {
             if (insertBatch.length > 0) {
                 debug(insertBatch.length + " batch inserted stages");
                 mongo.connect(inceptorDB, function(err, db) {
-                    if (err) { logger.error(err.toString()); return; }
+                    if (err) { logger.error(err.toString());
+                        return; }
                     db.collection(cname).insertMany(insertBatch, function(err, res) {
-                        if (err) { logger.error(err.toString()); return; }
+                        if (err) { logger.error(err.toString());
+                            return; }
                         db.close();
                     });
                 });
@@ -414,10 +413,27 @@ function fetchStages(source) {
     }).auth(source.user, source.passwd, false);
 }
 
+function sourceInfo(s, showPassword) {
+    return {
+        id: s.id,
+        host: s.host,
+        user: s.user,
+        passwd: (!showPassword ? "******" : s.passwd),
+        registers: s.registers,
+        jobs: s.jobs,
+        stages: s.stages,
+        jobCheckpoint: s.jobCheckpoint,
+        stageCheckpoint: s.stageCheckpoint,
+        added: s.added,
+        active: s.active
+    }
+};
+
 var inceptor = {
     db: inceptorDB,
     getSources: getSources,
     getSource: getSource,
+    getSourceById: getSourceById,
     register: register,
     unregister: unregister,
     remove: remove,

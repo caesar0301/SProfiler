@@ -65,6 +65,7 @@
       </div>
     </main>
     <script type="text/javascript">
+    // Main trigger
     var gonow = {
       setBusy: function(host) {
         // change to running state
@@ -73,7 +74,7 @@
         $("#sourceInput").prop("readonly", "readonly");
         Cookies.set("gonowClicked", "true");
         Cookies.set("activeSource", host);
-        addTimelineData(host);
+        liveData = true;
       },
       setIdle: function() {
         // change to idle state
@@ -81,15 +82,11 @@
         $("#sourceInput").prop("readonly", "");
         Cookies.set("gonowClicked", "false");
         Cookies.set("activeSource", null);
+        liveData = false;
       },
       isBusy: function() {
         return Cookies.get('gonowClicked') == "true";
       }
-    };
-
-    // recover state on refresh
-    if (gonow.isBusy()) {
-      gonow.setBusy(Cookies.get("activeSource"));
     };
 
     // GoNow button
@@ -121,63 +118,55 @@
       }
     });
 
-    var timeline = createTimeline("visualization");
+    // Timeline
+    var height = ($(document).height() - 100 - $("#wrapScreenHeader").outerHeight() - $("#headMainTitle").outerHeight()) + 'px';
+    var timeline = createTimeline("visualization", height);
+    var previous = new Date(null);
+    var checkpoint = null;
+    var liveView = true;
+    var liveData = false;
 
-    function assembleJobUrl(host) {
-      return "/source/" + encodeURIComponent(host) + "/jobs";
-    }
+    timeline.moveTo(timeline.getCurrentTime());
+    timeline.on("currentTimeTick", onCurrentTimeTick);
+    timeline.on("rangechanged", function(props) {
+      liveView = !props.byUser;
+    });
+    timeline.on("doubleClick", function(props) {
+      liveView = true;
+    });
 
-    function createTimeline(container) {
-      // DOM element where the Timeline will be attached
-      var ele = document.getElementById(container);
-      var height = ($(document).height() - $("#wrapScreenHeader").outerHeight() - $("#headMainTitle").outerHeight()) + 'px';
-      console.log(height);
-      // Configuration for the Timeline
-      var options = {
-        height: height,
-        minHeight: height,
-        stack: true,
-        showMajorLabels: true,
-        showCurrentTime: true,
-        format: {
-          minorLabels: {
-            millisecond: 'SSS',
-            second: 'ss',
-            minute: 'HH:mm',
-            hour: 'HH:mm',
-          },
-          majorLabels: {
-            millisecond: 'YY-MM-DD HH:mm:ss',
-            second: 'YYYY-MM-DD HH:mm',
-            minute: 'YYYY-MM-DD',
-            hour: 'YYYY-MM-DD',
-          }
-        },
-        orientation: {
-          axis: 'top',
-          item: 'top',
-        },
+    function onCurrentTimeTick(props) {
+      var current = timeline.getCurrentTime();
+      if (current.getTime() - previous.getTime() >= 1000) {
+        if (liveView) {
+          var win = resizeWindow(current, 60000);
+          timeline.setWindow(win.start, win.end, {
+            duration: 2000
+          });
+        };
+        if (liveData) {
+          updateDataItems(checkpoint, 100);
+        }
+        previous = current;
       };
-      // Create a Timeline
-      var timeline = new vis.Timeline(ele);
-      timeline.setOptions(options);
-      return timeline;
     }
 
-    function addTimelineData(targetUrl) {
-      $.get(assembleJobUrl(targetUrl), function(response, status, xhr) {
-        var res = extractJobItems(response);
-        timeline.setGroups(new vis.DataSet(res.g));
-        timeline.setItems(new vis.DataSet(res.i));
-      });
+    function updateDataItems(chkpnt, max) {
+      var prefix = "/source/" + encodeURIComponent(Cookies.get("activeSource"));
+      var url = chkpnt == null ?
+        (prefix + "/jobs/1-0?limit=" + max) :
+        (prefix + "/jobs/" + chkpnt + "-0?limit=" + max);
+      $.get(url, function(rsp, status, xhr) {
+        var items = extractJobItems(rsp);
+        timeline.setData(items);
+      })
     };
 
-    console.log("window: " + timeline.getWindow())
-    timeline.moveTo(Date.now())
-
-    timeline.on("rangechanged", function(props) {
-        console.log(props)
-    })
+    // recover state on refresh
+    if (gonow.isBusy()) {
+      gonow.setBusy(Cookies.get("activeSource"));
+      console.log(liveData)
+    };
     </script>
   </div>
 </body>
