@@ -9,15 +9,12 @@ var utils = require('../common/utils');
 var logger = require('../common/logger');
 
 var context = null;
-var sourceMap = {};
 var scheduler = null;
 var schedulerInterval = 500;
 var df = "yyyymmddHHMMss";
 var inceptorDB = config.db + "/inceptor";
 
-loadSystemContext();
-
-function loadSystemContext() {
+function loadSystemContext(callback) {
     mongo.connect(inceptorDB, function(err, db) {
         if (err) {
             logger.error(err.toString());
@@ -30,14 +27,14 @@ function loadSystemContext() {
             }
             if (doc != null) {
                 context = doc;
-                sourceMap = context.sources;
                 logger.info("System context configurations loaded.");
             } else {
                 context = {
-                    sources: sourceMap,
+                    sources: {},
                 };
                 logger.info("Use new context configurations.")
             }
+            callback();
             db.close();
         });
     });
@@ -45,10 +42,11 @@ function loadSystemContext() {
 
 function dumpSystemContext() {
     if (context == null) return;
+    var sources = context.sources;
     var dump = new Object();
     dump.sources = {};
-    for (host in sourceMap) {
-        dump.sources[host] = sourceInfo(sourceMap[host], true);
+    for (host in sources) {
+        dump.sources[host] = sourceInfo(sources[host], true);
     }
     mongo.connect(inceptorDB, function(err, db) {
         if (err) {
@@ -74,9 +72,10 @@ function register(hostname) {
 
 function unregister(hostname) {
     var host = utils.validateHost(hostname);
-    if (host in sourceMap && sourceMap[host].active) {
-        sourceMap[host].registers -= 1;
-        return sourceInfo(sourceMap[host], false);
+    var sources = context.sources;
+    if (host in sources && sources[host].active) {
+        sources[host].registers -= 1;
+        return sourceInfo(sources[host], false);
     };
     return null;
 }
@@ -85,9 +84,10 @@ function unregister(hostname) {
  * add new restful source or increase counter by one.
  */
 function addNewSource(host, user, passwd) {
+    var sources = context.sources;
     var ns = new Object();
-    if (sourceMap[host] == null) {
-        ns.id = Object.keys(sourceMap).length;
+    if (sources[host] == null) {
+        ns.id = Object.keys(sources).length;
         ns.host = host;
         ns.user = user;
         ns.passwd = passwd;
@@ -100,9 +100,9 @@ function addNewSource(host, user, passwd) {
         ns.added = Date.now();
         ns.active = true;
         // Add new source to list
-        sourceMap[host] = ns;
+        sources[host] = ns;
     } else {
-        ns = sourceMap[host];
+        ns = sources[host];
         if (!ns.active) {
             ns.active = true;
             ns.registers = 0;
@@ -124,33 +124,36 @@ function remove(source) {
             clearInterval(source.timeout);
             source.timeout = null;
         }
-        // delete sourceMap[source.host];
+        // delete sources[source.host];
         source.active = false;
         source.registers = 0;
     }
 }
 
 function getSources() {
-    var sources = [];
-    for (host in sourceMap) {
-        var s = sourceMap[host];
-        sources.push(sourceInfo(s, false));
+    var sources = context.sources;
+    var res = [];
+    for (host in sources) {
+        var s = sources[host];
+        res.push(sourceInfo(s, false));
     };
-    return sources;
+    return res;
 }
 
 function getSource(host) {
     var h = utils.validateHost(host);
-    if (h in sourceMap) {
-        return sourceInfo(sourceMap[h], false);
+    var sources = context.sources;
+    if (h in sources) {
+        return sourceInfo(sources[h], false);
     } else {
         return null;
     }
 }
 
 function getSourceById(id) {
-    for (host in sourceMap) {
-        var s = sourceMap[host];
+    var sources = context.sources;
+    for (host in sources) {
+        var s = sources[host];
         if (s.id.toString() == id.toString()) {
             return sourceInfo(s, false);
         }
@@ -162,21 +165,24 @@ function getSourceById(id) {
  * Start the monitor service.
  */
 function start(mongoHost) {
-    scheduler = setInterval(doScheduler, schedulerInterval);
-    logger.info("Inceptor service started.");
+    loadSystemContext(function() {
+        scheduler = setInterval(doScheduler, schedulerInterval);
+        logger.info("Inceptor service started.");
+    });
 }
 
 /**
  * Stop the monitor service corretly.
  */
 function stop() {
-    for (var host in sourceMap) {
-        sourcemap[host].active = false;
-        var timeout = sourceMap[host].timeout;
+    var sources = context.sources;
+    for (var host in sources) {
+        sources[host].active = false;
+        var timeout = sources[host].timeout;
         if (timeout != null) {
             logger.info("Stopped monitor service on " + host);
             clearInterval(timeout);
-            sourceMap[host].timeout = null;
+            sources[host].timeout = null;
         }
     }
     if (scheduler != null) {
@@ -190,8 +196,9 @@ function stop() {
  * Main service scheduler to check source states periodically.
  */
 function doScheduler() {
-    for (var host in sourceMap) {
-        var source = sourceMap[host];
+    var sources = context.sources;
+    for (var host in sources) {
+        var source = sources[host];
         if (!source.active) {
             continue;
         }
@@ -303,11 +310,15 @@ function fetchJobs(source) {
             if (insertBatch.length > 0) {
                 debug(insertBatch.length + " batch inserted jobs");
                 mongo.connect(inceptorDB, function(err, db) {
-                    if (err) { logger.error(err.toString());
-                        return; }
+                    if (err) {
+                        logger.error(err.toString());
+                        return;
+                    }
                     db.collection(cname).insertMany(insertBatch, function(err, res) {
-                        if (err) { logger.error(err.toString());
-                            return; }
+                        if (err) {
+                            logger.error(err.toString());
+                            return;
+                        }
                         db.close();
                     });
                 });
@@ -398,11 +409,15 @@ function fetchStages(source) {
             if (insertBatch.length > 0) {
                 debug(insertBatch.length + " batch inserted stages");
                 mongo.connect(inceptorDB, function(err, db) {
-                    if (err) { logger.error(err.toString());
-                        return; }
+                    if (err) {
+                        logger.error(err.toString());
+                        return;
+                    }
                     db.collection(cname).insertMany(insertBatch, function(err, res) {
-                        if (err) { logger.error(err.toString());
-                            return; }
+                        if (err) {
+                            logger.error(err.toString());
+                            return;
+                        }
                         db.close();
                     });
                 });
