@@ -1,6 +1,11 @@
 var previous = new Date(null);
 var checkpoint = null;
 var groupNames = {};
+var visGroups = new vis.DataSet(); // main data to show
+var visItems = new vis.DataSet();
+var liveView = true;
+var liveData = false;
+var timeSynced = false; // sync time between local and server
 
 function createTimeline(container, height) {
     // DOM element where the Timeline will be attached
@@ -99,6 +104,41 @@ function onCurrentTimeTick(props) {
     };
 }
 
+function updateDataItems(check, max) {
+    var prefix = "/source/" + encodeURIComponent(Cookies.get("activeSource"));
+    var c = (check == null ? 0 : check);
+    var url = prefix + "/jobs?limit=" + max + "&c=" + c;
+    $.get(url, function(rsp, status, xhr) {
+        var res = extractJobItems(rsp);
+        console.log("checkpoint: " + check + " items: " + res.items.length)
+        // progressing jobs
+        for (var i = 0; i < res.items.length; i++) {
+            var item = res.items[i]
+            updateCheckpoint(item.start);
+            if (item.end == null) {
+                item.end = timeline.getCurrentTime();
+            } else {
+                updateCheckpoint(item.end);
+            }
+        }
+        // update new data
+        visItems.update(res.items);
+        visGroups.update(res.groups);
+        // sync server time
+        if (!timeSynced) {
+            var server = new Date().getTime();
+            for (i = 0; i < res.items.length; i++) {
+                var item = res.items[i];
+                if(item.end != null && item.end.getTime() > server) {
+                    server = item.end.getTime();
+                };
+            }
+            timeline.setCurrentTime(server);
+            timeSynced = true;
+        }
+    });
+};
+
 function updateJobStat() {
     var prefix = "/source/" + encodeURIComponent(Cookies.get("activeSource"));
     var url = prefix + "/stats";
@@ -108,28 +148,6 @@ function updateJobStat() {
         $("#statStages").text(stats.numStages);
     });
 }
-
-function updateDataItems(check, max) {
-    var prefix = "/source/" + encodeURIComponent(Cookies.get("activeSource"));
-    var c = (check == null ? 0 : check);
-    var url = prefix + "/jobs?limit=" + max + "&c=" + c;
-    $.get(url, function(rsp, status, xhr) {
-        var n = extractJobItems(rsp);
-        console.log("checkpoint: " + check + " items: " + n.items.length)
-        for (var i = 0; i < n.items.length; i++) {
-            var item = n.items[i]
-            updateCheckpoint(item.start);
-            if (item.end == null) {
-                item.end = timeline.getCurrentTime();
-            } else {
-                updateCheckpoint(item.end);
-            }
-        }
-        // append new data
-        items.update(n.items);
-        groups.update(n.groups);
-    });
-};
 
 function updateCheckpoint(t) {
     if (checkpoint == null) {

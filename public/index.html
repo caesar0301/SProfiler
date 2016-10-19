@@ -34,7 +34,7 @@
           <div class="collapse navbar-collapse" id="nav153bar-collapse-1">
             <form class="navbar-form navbar-left" role="form">
               <div class="input-group">
-                <input id="sourceInput" type="text" class="form-control" style="width:200px" placeholder="localhost:4040">
+                <input id="sourceInput" type="text" class="form-control" style="width:200px">
                 <span class="input-group-btn">
                     <button class="btn btn-success" style="width:65px" type="button" id="gonow">Go!</button>
                 </span>
@@ -65,9 +65,8 @@
       var gonow = {
         setBusy: function(host) {
           // change to running state
-          $("#gonow").removeClass("btn-success")
-          $("#gonow").addClass("btn-danger").text("Stop");
-          $("#sourceInput").prop("readonly", "readonly");
+          $("#gonow").removeClass("btn-success").addClass("btn-danger").text("Stop");
+          $("#sourceInput").prop("readonly", "readonly").prop("value", host);
           Cookies.set("gonowClicked", "true");
           Cookies.set("activeSource", host);
           liveData = true;
@@ -87,8 +86,12 @@
 
       // GoNow button
       $("#gonow").click(function() {
-        var host = $("#sourceInput").val() == '' ?
-          $("#sourceInput").prop('placeholder') : $("#sourceInput").val()
+        var host = $("#sourceInput").val();
+        console.log(host)
+        if (host.length == 0 || host == null) {
+            $().toastmessage('showErrorToast', 'Feed me a valid site address, plz (e.g., 10.0.0.10.4040)')
+            return;
+        }
         var dataForm = {
           source: {
             host: host,
@@ -118,14 +121,10 @@
         <div id="visualization" style="height: 600px"></div>
         <script type="text/javascript">
         // Timeline
-        var height = ($(document).height() - 100 - $("#wrapScreenHeader").outerHeight() - $("#headMainTitle").outerHeight()) + 'px';
+        var height = ($(document).height() - $("#wrapScreenHeader").outerHeight() - $("#headMainTitle").outerHeight()) + 'px';
         var timeline = createTimeline("visualization", height);
-        var groups = new vis.DataSet();
-        var items = new vis.DataSet();
-        var liveView = true;
-        var liveData = false;
-        timeline.setGroups(groups);
-        timeline.setItems(items);
+        timeline.setGroups(visGroups);
+        timeline.setItems(visItems);
         timeline.moveTo(timeline.getCurrentTime());
         timeline.on("currentTimeTick", onCurrentTimeTick);
         timeline.on("rangechanged", function(props) {
