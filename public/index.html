@@ -57,7 +57,7 @@
     <main id="wrapScreenMain">
       <div id="headMainTitle">
         <div id="HEADTITLE" style="text-align: left">
-          <h3>Total: 1000 jobs, 2000 stages</h3>
+          <h3>Total: <span id="statJobs">0</span> jobs, <span id="statStages">0</span> stages</h3>
         </div>
       </div>
       <div>
@@ -120,12 +120,16 @@
 
     // Timeline
     var height = ($(document).height() - 100 - $("#wrapScreenHeader").outerHeight() - $("#headMainTitle").outerHeight()) + 'px';
-    var timeline = createTimeline("visualization", height);
+    var groups = new vis.DataSet();
+    var items = new vis.DataSet();
     var previous = new Date(null);
     var checkpoint = null;
     var liveView = true;
     var liveData = false;
 
+    var timeline = createTimeline("visualization", height);
+    timeline.setGroups(groups);
+    timeline.setItems(items);
     timeline.moveTo(timeline.getCurrentTime());
     timeline.on("currentTimeTick", onCurrentTimeTick);
     timeline.on("rangechanged", function(props) {
@@ -145,22 +149,55 @@
           });
         };
         if (liveData) {
-          updateDataItems(checkpoint, 100);
+          updateDataItems(checkpoint, 1000);
+          updateJobStat();
         }
         previous = current;
       };
     }
 
-    function updateDataItems(chkpnt, max) {
+    function updateJobStat() {
+        var prefix = "/source/" + encodeURIComponent(Cookies.get("activeSource"));
+        var url = prefix + "/stats";
+        $.get(url, function(rsp, status, xhr) {
+            var stats = rsp.stats;
+            $("#statJobs").text(stats.numJobs);
+            $("#statStages").text(stats.numStages);
+        });
+    }
+
+    function updateDataItems(check, max) {
       var prefix = "/source/" + encodeURIComponent(Cookies.get("activeSource"));
-      var url = chkpnt == null ?
-        (prefix + "/jobs/1-0?limit=" + max) :
-        (prefix + "/jobs/" + chkpnt + "-0?limit=" + max);
+      var c = (check == null ? 0 : check);
+      var url = prefix + "/jobs?limit=" + max + "&c=" + c;
       $.get(url, function(rsp, status, xhr) {
-        var items = extractJobItems(rsp);
-        timeline.setData(items);
-      })
+        var n = extractJobItems(rsp);
+        console.log("checkpoint: " + check + " items: " + n.items.length)
+        for (var i = 0; i < n.items.length; i++) {
+          var item = n.items[i]
+          updateCheckpoint(item.start);
+          if (item.end == null) {
+            item.end = timeline.getCurrentTime();
+          } else {
+            updateCheckpoint(item.end);
+          }
+        }
+        // append new data
+        items.update(n.items);
+        groups.update(n.groups);
+      });
     };
+
+    function updateCheckpoint(t) {
+      if (checkpoint == null) {
+        checkpoint = t;
+      } else if (t != null) {
+        var t2 = t instanceof Date ? t.getTime() : t;
+        if (t2 > checkpoint) {
+          checkpoint = t2;
+        }
+      }
+    }
 
     // recover state on refresh
     if (gonow.isBusy()) {

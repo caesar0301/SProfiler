@@ -1,3 +1,4 @@
+
 function createTimeline(container, height) {
     // DOM element where the Timeline will be attached
     var ele = document.getElementById(container);
@@ -35,9 +36,11 @@ function createTimeline(container, height) {
     return timeline;
 }
 
+var names = {};
+
 function extractJobItems(jobs) {
     var items = [];
-    var names = {};
+    var groups = [];
     for (var i = 0; i < jobs.length; i++) {
         var job = jobs[i];
         var group = job.schedulingPool;
@@ -45,26 +48,27 @@ function extractJobItems(jobs) {
             names[group] = Object.keys(names).length
         }
         var start = new Date(job.submissionTime);
-        var end = new Date(job.completionTime);
+        var end = job.completionTime ? new Date(job.completionTime) : null;
         var jobCompleted = end != null && start != null && end.getTime() > start.getTime();
         var item = {
             id: job._id,
-            content: "#" + job.jobId + " (running)",
-            start: job.submissionTime,
+            content: "#" + job.jobId + " (" + job.status + ")",
+            start: start,
             group: names[group],
+            type: "range"
         };
         if (jobCompleted) {
-            item.end = job.completionTime;
-            item.type = "range";
+            item.end = end;
             var tdelta = Math.abs(new Date(job.submissionTime) - new Date(job.completionTime)) / 1000;
-            item.content = "#" + job.jobId + " (" + job.numTasks + " tasks, " + tdelta.toFixed(3) + "s)";
+            item.content = "#" + job.jobId + " (" + job.stageIds.length + " stages, " + tdelta.toFixed(3) + "s)";
+            item.style = null;
+            // item.type = "range";
         } else {
             item.style = "color: #000000; border-color: #56B056; background-color: #56B056;";
-            item.type = "box";
+            // item.type = "box";
         }
         items.push(item);
     }
-    var groups = [];
     for (i in names) {
         groups.push({
             id: names[i],
@@ -72,8 +76,8 @@ function extractJobItems(jobs) {
         });
     };
     return {
-        items: new vis.DataSet(items),
-        group: new vis.DataSet(groups)
+        items: items,
+        groups: groups
     };
 };
 

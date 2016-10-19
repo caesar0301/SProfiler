@@ -242,7 +242,6 @@ function fetchJobs(source) {
     var api = source.host + "/api/jobs?userId=" + source.user + "&afterTime=" + after;
     debug(api);
 
-
     request(api, function(err, response, body) {
         if (err) {
             logger.error(err.toString());
@@ -266,25 +265,22 @@ function fetchJobs(source) {
             // process jobs data
             var insertBatch = [];
             var updateBatch = [];
-            var updateCheckpoint = function(dtime) {
+            var updateCheckpoint = function(t) {
                 // record the latest timestamp of completed job.
                 if (source.jobCheckpoint == null) {
-                    source.jobCheckpoint = dtime;
-                } else if (dtime != null && dtime.getTime() > source.jobCheckpoint.getTime()) {
-                    source.jobCheckpoint = dtime;
+                    source.jobCheckpoint = t;
+                } else if (t != null && t.getTime() > source.jobCheckpoint.getTime()) {
+                    source.jobCheckpoint = t;
                 }
             }
             var checkpoint = source.jobCheckpoint;
             for (var i = 0; i < jobs.length; i++) {
                 var job = jobs[jobs.length - i - 1];
-                job.submissionTime = new Date(job.submissionTime);
-                job.completionTime = new Date(job.completionTime);
-                if (job.submissionTime == null) {
-                    continue;
-                }
+                stime = new Date(job.submissionTime);
+                dtime = new Date(job.completionTime);
                 (checkpoint == null) ? insertBatch.push(job): updateBatch.push(job);
-                updateCheckpoint(job.submissionTime);
-                updateCheckpoint(job.completionTime);
+                updateCheckpoint(stime);
+                updateCheckpoint(dtime);
             }
 
             // perform entry-wise upsert
@@ -376,14 +372,11 @@ function fetchStages(source) {
             var checkpoint = source.stageCheckpoint;
             for (var i = 0; i < stages.length; i++) {
                 var stage = stages[stages.length - i - 1];
-                stage.submissionTime = new Date(stage.submissionTime);
-                stage.completionTime = new Date(stage.completionTime);
-                if (stage.submissionTime == null) {
-                    continue;
-                }
+                stime = new Date(stage.submissionTime);
+                dtime = new Date(stage.completionTime);
                 (checkpoint == null) ? insertBatch.push(stage): updateBatch.push(stage);
-                updateCheckpoint(stage.submissionTime);
-                updateCheckpoint(stage.completionTime);
+                updateCheckpoint(stime);
+                updateCheckpoint(dtime);
             }
 
             // perform entry-wise upsert

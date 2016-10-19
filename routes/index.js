@@ -56,30 +56,28 @@ router.get('/source/:source', function(req, res) {
     }
 });
 
-router.get('/source/:source/jobs/:from-:to', function(req, res) {
+router.get('/source/:source/jobs', function(req, res) {
     var idOrHost = decodeURIComponent(req.params['source']);
     var source = deriveSource(idOrHost);
-    var from = parseInt(req.params['from']);
-    var to = parseInt(req.params['to']);
+    var checkpoint = parseInt(req.query['c']);
     var limit = parseInt(req.query['limit']);
     if (source == null) {
         res.status(500).json({ "error": "There is no source " + idOrHost });
         return;
     }
-    if (isNaN(from) || isNaN(to)) {
-        res.status(500).json({ "error": "Invalid job timestamp range" });
-        return;
+    if (isNaN(checkpoint)) {
+        checkpoint = 0;
     }
     if (isNaN(limit)) {
-        limit = 50;
+        limit = 100;
     }
-
-    from = new Date(from);
-    to = new Date(to);
-
-    var query = {};
-    query.submissionTime = (from.getTime() <= to.getTime()) ? { $gte: from, $lt: to } : { $gte: from }
-
+    var query = {
+        $or: [{
+            completionTime: { $gte: checkpoint },
+        }, {
+            completionTime: null,
+        }]
+    };
     mongo.connect(inceptorDB, function(err, db) {
         if (err) {
             logger.error(err.String());
@@ -102,49 +100,28 @@ router.get('/source/:source/jobs/:from-:to', function(req, res) {
     });
 });
 
-router.get('/source/:source/stages/:from-:to', function(req, res) {
+router.get('/source/:source/stats', function(req, res) {
     var idOrHost = decodeURIComponent(req.params['source']);
     var source = deriveSource(idOrHost);
-    var from = parseInt(req.params['from']);
-    var to = parseInt(req.params['to']);
-    var limit = parseInt(req.query['limit']);
     if (source == null) {
         res.status(500).json({ "error": "There is no source " + idOrHost });
         return;
     }
-    if (isNaN(from) || isNaN(to)) {
-        res.status(500).json({ "error": "Invalid stage timestamp range" });
-        return;
-    }
-    if (isNaN(limit)) {
-        limit = 10;
-    }
-    from = new Date(from);
-    to = new Date(to);
-    var query = {};
-    query.submissionTime = (from.getTime() <= to.getTime()) ? { $gte: from, $lt: to } : { $gte: from }
-
     mongo.connect(inceptorDB, function(err, db) {
-        if (err) {
-            logger.error(err.String());
-            return;
-        }
-        db.collection(source.stages).find(query, {
-            _id: false,
-            limit: limit,
-            sort: [
-                ['submissionTime', -1]
-            ]
-        }).toArray(function(err, docs) {
-            if (err) {
-                logger.error(err.String());
-                return;
-            }
-            res.json(docs);
-            db.close();
-        });
-    });
-});
+        if (err) {logger.error(err.String());return;}
+        db.collection(source.jobs).count(function(err, numJobs) {
+            if (err) {logger.error(err.String());return;}
+            db.collection(source.stages).count(function(err, numStages) {
+                res.json({
+                    stats: {
+                        numJobs: numJobs,
+                        numStages: numStages,
+                    }
+                })
+            })
+        })
+    })
+})
 
 function deriveSource(idOrHost) {
     var target = parseInt(idOrHost);
