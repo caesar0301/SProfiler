@@ -53,6 +53,60 @@
         </div>
         <!-- /.container-fluid -->
       </nav>
+      <script>
+      $("#sourceInput").bind('keypress', function(e) {
+        var code = e.keyCode || e.which;
+        if (code == 13) { //Enter keycode
+          $("#gonow").click()
+        }
+      });
+
+      // GoNow button
+      var gonow = {
+        setBusy: function(host) {
+          // change to running state
+          $("#gonow").removeClass("btn-success")
+          $("#gonow").addClass("btn-danger").text("Stop");
+          $("#sourceInput").prop("readonly", "readonly");
+          Cookies.set("gonowClicked", "true");
+          Cookies.set("activeSource", host);
+          liveData = true;
+        },
+        setIdle: function() {
+          // change to idle state
+          $("#gonow").removeClass("btn-danger").addClass("btn-success").text("Go!");
+          $("#sourceInput").prop("readonly", "");
+          Cookies.set("gonowClicked", "false");
+          Cookies.set("activeSource", null);
+          liveData = false;
+        },
+        isBusy: function() {
+          return Cookies.get('gonowClicked') == "true";
+        }
+      };
+
+      // GoNow button
+      $("#gonow").click(function() {
+        var host = $("#sourceInput").val() == '' ?
+          $("#sourceInput").prop('placeholder') : $("#sourceInput").val()
+        var dataForm = {
+          source: {
+            host: host,
+            action: 'register'
+          }
+        };
+        if ($("#gonow").hasClass('btn-success')) {
+          gonow.setBusy(host);
+          $().toastmessage('showNoticeToast', 'Start listening on ' + host);
+        } else {
+          gonow.setIdle();
+          dataForm.source.action = "unregister";
+          $().toastmessage('showNoticeToast', 'Stop listening on ' + host);
+        }
+        // register new source
+        $.post('/source', dataForm, null, "application/json");
+      });
+      </script>
     </header>
     <main id="wrapScreenMain">
       <div id="headMainTitle">
@@ -62,149 +116,33 @@
       </div>
       <div>
         <div id="visualization" style="height: 600px"></div>
+        <script type="text/javascript">
+        // Timeline
+        var height = ($(document).height() - 100 - $("#wrapScreenHeader").outerHeight() - $("#headMainTitle").outerHeight()) + 'px';
+        var timeline = createTimeline("visualization", height);
+        var groups = new vis.DataSet();
+        var items = new vis.DataSet();
+        var liveView = true;
+        var liveData = false;
+        timeline.setGroups(groups);
+        timeline.setItems(items);
+        timeline.moveTo(timeline.getCurrentTime());
+        timeline.on("currentTimeTick", onCurrentTimeTick);
+        timeline.on("rangechanged", function(props) {
+          liveView = !props.byUser;
+        });
+        timeline.on("doubleClick", function(props) {
+          liveView = true;
+        });
+
+        // recover state on refresh
+        if (gonow.isBusy()) {
+          gonow.setBusy(Cookies.get("activeSource"));
+          console.log(liveData)
+        };
+        </script>
       </div>
     </main>
-    <script type="text/javascript">
-    // Main trigger
-    var gonow = {
-      setBusy: function(host) {
-        // change to running state
-        $("#gonow").removeClass("btn-success")
-        $("#gonow").addClass("btn-danger").text("Stop");
-        $("#sourceInput").prop("readonly", "readonly");
-        Cookies.set("gonowClicked", "true");
-        Cookies.set("activeSource", host);
-        liveData = true;
-      },
-      setIdle: function() {
-        // change to idle state
-        $("#gonow").removeClass("btn-danger").addClass("btn-success").text("Go!");
-        $("#sourceInput").prop("readonly", "");
-        Cookies.set("gonowClicked", "false");
-        Cookies.set("activeSource", null);
-        liveData = false;
-      },
-      isBusy: function() {
-        return Cookies.get('gonowClicked') == "true";
-      }
-    };
-
-    // GoNow button
-    $("#gonow").click(function() {
-      var host = $("#sourceInput").val() == '' ?
-        $("#sourceInput").prop('placeholder') : $("#sourceInput").val()
-      var dataForm = {
-        source: {
-          host: host,
-          action: 'register'
-        }
-      };
-      if ($("#gonow").hasClass('btn-success')) {
-        gonow.setBusy(host);
-        $().toastmessage('showNoticeToast', 'Start listening on ' + host);
-      } else {
-        gonow.setIdle();
-        dataForm.source.action = "unregister";
-        $().toastmessage('showNoticeToast', 'Stop listening on ' + host);
-      }
-      // register new source
-      $.post('/source', dataForm, null, "application/json");
-    });
-
-    $("#sourceInput").bind('keypress', function(e) {
-      var code = e.keyCode || e.which;
-      if (code == 13) { //Enter keycode
-        $("#gonow").click()
-      }
-    });
-
-    // Timeline
-    var height = ($(document).height() - 100 - $("#wrapScreenHeader").outerHeight() - $("#headMainTitle").outerHeight()) + 'px';
-    var groups = new vis.DataSet();
-    var items = new vis.DataSet();
-    var previous = new Date(null);
-    var checkpoint = null;
-    var liveView = true;
-    var liveData = false;
-
-    var timeline = createTimeline("visualization", height);
-    timeline.setGroups(groups);
-    timeline.setItems(items);
-    timeline.moveTo(timeline.getCurrentTime());
-    timeline.on("currentTimeTick", onCurrentTimeTick);
-    timeline.on("rangechanged", function(props) {
-      liveView = !props.byUser;
-    });
-    timeline.on("doubleClick", function(props) {
-      liveView = true;
-    });
-
-    function onCurrentTimeTick(props) {
-      var current = timeline.getCurrentTime();
-      if (current.getTime() - previous.getTime() >= 1000) {
-        if (liveView) {
-          var win = resizeWindow(current, 60000);
-          timeline.setWindow(win.start, win.end, {
-            duration: 2000
-          });
-        };
-        if (liveData) {
-          updateDataItems(checkpoint, 1000);
-          updateJobStat();
-        }
-        previous = current;
-      };
-    }
-
-    function updateJobStat() {
-        var prefix = "/source/" + encodeURIComponent(Cookies.get("activeSource"));
-        var url = prefix + "/stats";
-        $.get(url, function(rsp, status, xhr) {
-            var stats = rsp.stats;
-            $("#statJobs").text(stats.numJobs);
-            $("#statStages").text(stats.numStages);
-        });
-    }
-
-    function updateDataItems(check, max) {
-      var prefix = "/source/" + encodeURIComponent(Cookies.get("activeSource"));
-      var c = (check == null ? 0 : check);
-      var url = prefix + "/jobs?limit=" + max + "&c=" + c;
-      $.get(url, function(rsp, status, xhr) {
-        var n = extractJobItems(rsp);
-        console.log("checkpoint: " + check + " items: " + n.items.length)
-        for (var i = 0; i < n.items.length; i++) {
-          var item = n.items[i]
-          updateCheckpoint(item.start);
-          if (item.end == null) {
-            item.end = timeline.getCurrentTime();
-          } else {
-            updateCheckpoint(item.end);
-          }
-        }
-        // append new data
-        items.update(n.items);
-        groups.update(n.groups);
-      });
-    };
-
-    function updateCheckpoint(t) {
-      if (checkpoint == null) {
-        checkpoint = t;
-      } else if (t != null) {
-        var t2 = t instanceof Date ? t.getTime() : t;
-        if (t2 > checkpoint) {
-          checkpoint = t2;
-        }
-      }
-    }
-
-    // recover state on refresh
-    if (gonow.isBusy()) {
-      gonow.setBusy(Cookies.get("activeSource"));
-      console.log(liveData)
-    };
-    </script>
   </div>
 </body>
 

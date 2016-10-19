@@ -1,3 +1,6 @@
+var previous = new Date(null);
+var checkpoint = null;
+var groupNames = {};
 
 function createTimeline(container, height) {
     // DOM element where the Timeline will be attached
@@ -36,16 +39,14 @@ function createTimeline(container, height) {
     return timeline;
 }
 
-var names = {};
-
 function extractJobItems(jobs) {
     var items = [];
     var groups = [];
     for (var i = 0; i < jobs.length; i++) {
         var job = jobs[i];
         var group = job.schedulingPool;
-        if (names[group] == null) {
-            names[group] = Object.keys(names).length
+        if (groupNames[group] == null) {
+            groupNames[group] = Object.keys(groupNames).length
         }
         var start = new Date(job.submissionTime);
         var end = job.completionTime ? new Date(job.completionTime) : null;
@@ -54,7 +55,7 @@ function extractJobItems(jobs) {
             id: job._id,
             content: "#" + job.jobId + " (" + job.status + ")",
             start: start,
-            group: names[group],
+            group: groupNames[group],
             type: "range"
         };
         if (jobCompleted) {
@@ -69,9 +70,9 @@ function extractJobItems(jobs) {
         }
         items.push(item);
     }
-    for (i in names) {
+    for (i in groupNames) {
         groups.push({
-            id: names[i],
+            id: groupNames[i],
             content: i.toString()
         });
     };
@@ -80,6 +81,66 @@ function extractJobItems(jobs) {
         groups: groups
     };
 };
+
+function onCurrentTimeTick(props) {
+    var current = timeline.getCurrentTime();
+    if (current.getTime() - previous.getTime() >= 1000) {
+        if (liveView) {
+            var win = resizeWindow(current, 60000);
+            timeline.setWindow(win.start, win.end, {
+                duration: 2000
+            });
+        };
+        if (liveData) {
+            updateDataItems(checkpoint, 1000);
+            updateJobStat();
+        }
+        previous = current;
+    };
+}
+
+function updateJobStat() {
+    var prefix = "/source/" + encodeURIComponent(Cookies.get("activeSource"));
+    var url = prefix + "/stats";
+    $.get(url, function(rsp, status, xhr) {
+        var stats = rsp.stats;
+        $("#statJobs").text(stats.numJobs);
+        $("#statStages").text(stats.numStages);
+    });
+}
+
+function updateDataItems(check, max) {
+    var prefix = "/source/" + encodeURIComponent(Cookies.get("activeSource"));
+    var c = (check == null ? 0 : check);
+    var url = prefix + "/jobs?limit=" + max + "&c=" + c;
+    $.get(url, function(rsp, status, xhr) {
+        var n = extractJobItems(rsp);
+        console.log("checkpoint: " + check + " items: " + n.items.length)
+        for (var i = 0; i < n.items.length; i++) {
+            var item = n.items[i]
+            updateCheckpoint(item.start);
+            if (item.end == null) {
+                item.end = timeline.getCurrentTime();
+            } else {
+                updateCheckpoint(item.end);
+            }
+        }
+        // append new data
+        items.update(n.items);
+        groups.update(n.groups);
+    });
+};
+
+function updateCheckpoint(t) {
+    if (checkpoint == null) {
+        checkpoint = t;
+    } else if (t != null) {
+        var t2 = t instanceof Date ? t.getTime() : t;
+        if (t2 > checkpoint) {
+            checkpoint = t2;
+        }
+    }
+}
 
 function logEvent(event, properties) {
     var msg = 'event=' + JSON.stringify(event) + ', ' +

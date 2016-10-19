@@ -80,7 +80,7 @@ router.get('/source/:source/jobs', function(req, res) {
     };
     mongo.connect(inceptorDB, function(err, db) {
         if (err) {
-            logger.error(err.String());
+            logger.error(err.toString());
             return;
         }
         db.collection(source.jobs).find(query, {
@@ -91,7 +91,7 @@ router.get('/source/:source/jobs', function(req, res) {
             ]
         }).toArray(function(err, docs) {
             if (err) {
-                logger.error(err.String());
+                logger.error(err.toString());
                 return;
             }
             res.json(docs);
@@ -108,9 +108,9 @@ router.get('/source/:source/stats', function(req, res) {
         return;
     }
     mongo.connect(inceptorDB, function(err, db) {
-        if (err) {logger.error(err.String());return;}
+        if (err) {logger.error(err.toString());return;}
         db.collection(source.jobs).count(function(err, numJobs) {
-            if (err) {logger.error(err.String());return;}
+            if (err) {logger.error(err.toString());return;}
             db.collection(source.stages).count(function(err, numStages) {
                 res.json({
                     stats: {
