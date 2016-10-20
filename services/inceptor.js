@@ -8,74 +8,79 @@ var config = require('../common/config');
 var utils = require('../common/utils');
 var logger = require('../common/logger');
 
-var context = null;
+var context = {
+    sources: {}
+};
 var scheduler = null;
 var schedulerInterval = 500;
+var dataInterval = 900;
 var df = "yyyymmddHHMMss";
 var inceptorDB = config.db + "/inceptor";
 
-function loadSystemContext(callback) {
-    mongo.connect(inceptorDB, function(err, db) {
-        if (err) {
-            logger.error(err.toString());
-            return;
-        }
-        db.collection("context").findOne({}, function(err, doc) {
-            if (err) {
-                logger.error(err.toString());
-                return;
-            }
-            if (doc != null) {
-                context = doc;
-                if (doc.sources == null) {
-                    doc.sources = {};
-                } else {
-                    // reset sources
-                    for (host in context.sources) {
-                        context.sources[host].registers = 0;
-                    }
-                }
-                logger.info("System context configurations loaded.");
-            } else {
-                context = {
-                    sources: {},
-                };
-                logger.info("Use new context configurations.")
-            }
-            callback();
-            db.close();
-        });
-    });
+function Source(host, user, password) {
+    this.id = Object.keys(context.sources).length;
+    this.host = host;
+    this.user = user;
+    this.passwd = password;
+    this.registers = 0;
+    this.jobs = "S" + this.id + "_JOBS";
+    this.stages = "S" + this.id + "_STAGES";
+    this.jobCheckpoint = null;
+    this.stageCheckpoint = null; // the Timeout instance of setInterval
+    this.timeout = null;
+    this.added = Date.now();
+    this.active = true;
 }
 
-function dumpSystemContext() {
-    if (context == null) return;
-    var sources = context.sources;
-    var dump = new Object();
-    dump.sources = {};
-    for (host in sources) {
-        dump.sources[host] = sourceInfo(sources[host], true);
+Source.prototype = {
+    constructor: Source,
+    toString: function(showPassword) {
+        return {
+            id: this.id,
+            host: this.host,
+            user: this.user,
+            passwd: (!showPassword ? "******" : this.passwd),
+            registers: this.registers,
+            jobs: this.jobs,
+            stages: this.stages,
+            jobCheckpoint: this.jobCheckpoint,
+            stageCheckpoint: this.stageCheckpoint,
+            added: this.added,
+            active: this.active
+        };
+    },
+    set: function(s) {
+        this.id = s.id;
+        this.host = s.host;
+        this.user = s.user;
+        this.passwd = s.passwd;
+        this.registers = s.registers;
+        this.jobs = s.jobs;
+        this.stages = s.stages;
+        this.jobCheckpoint = s.jobCheckpoint;
+        this.timeout = s.timeout;
+        this.added = s.added;
+        this.active = s.active;
+        return this;
+    },
+    reset: function() {
+        this.registers = 0;
+        this.jobCheckpoint = null;
+        this.stageCheckpoint = null;
+        this.timeout = null;
+        this.active = true;
+        return this;
     }
-    mongo.connect(inceptorDB, function(err, db) {
-        if (err) {
-            logger.error(err.toString());
-            return;
-        }
-        db.collection("context").updateOne({}, dump, { upsert: true }, function(err, res) {
-            if (err) {
-                logger.error(err.toString());
-                return;
-            }
-            db.close();
-        });
-    });
 }
 
-function register(hostname) {
+function register(hostname, user, pass) {
     var host = utils.validateHost(hostname);
-    var ns = addNewSource(host, config.user, config.passwd);
+    var ns = addNewSource(host, user, pass);
+    if (ns.registers < 0) {
+        ns.registers = 0;
+    }
     ns.registers += 1;
-    return sourceInfo(ns, false);
+    return ns.toString(false);
 }
 
 function unregister(hostname) {
@@ -83,7 +88,7 @@ function unregister(hostname) {
     var sources = context.sources;
     if (host in sources && sources[host].active) {
         sources[host].registers -= 1;
-        return sourceInfo(sources[host], false);
+        return sources[host].toString(false);
     };
     return null;
 }
@@ -93,28 +98,13 @@ function unregister(hostname) {
  */
 function addNewSource(host, user, passwd) {
     var sources = context.sources;
-    var ns = new Object();
     if (sources[host] == null) {
-        ns.id = Object.keys(sources).length;
-        ns.host = host;
-        ns.user = user;
-        ns.passwd = passwd;
-        ns.registers = 0;
-        ns.jobs = "S" + ns.id + "_JOBS";
-        ns.stages = "S" + ns.id + "_STAGES";
-        ns.jobCheckpoint = null;
-        ns.stageCheckpoint = null;
-        ns.timeout = null; // the Timeout instance of setInterval
-        ns.added = Date.now();
-        ns.active = true;
-        // Add new source to list
+        ns = new Source(host, user, passwd);
         sources[host] = ns;
     } else {
         ns = sources[host];
         if (!ns.active) {
-            ns.active = true;
-            ns.registers = 0;
-            ns.timeout = null;
+            ns.reset()
         }
     }
     return ns;
@@ -138,12 +128,60 @@ function remove(source) {
     }
 }
 
+function loadSystemContext(callback) {
+    mongo.connect(inceptorDB, function(err, db) {
+        if (err) {
+            logger.error(err.toString());
+            return;
+        }
+        db.collection("context").findOne({}, function(err, doc) {
+            if (err) {
+                logger.error(err.toString());
+                return;
+            }
+            if (doc != null) {
+                if (doc.sources != null) {
+                    for (host in doc.sources) {
+                        context.sources[host] =
+                            new Source(null, null, null).set(doc.sources[host]).reset()
+                    }
+                }
+                logger.info("System context configurations loaded.");
+            } else {
+                logger.info("Use new context configurations.")
+            }
+            callback();
+            db.close();
+        });
+    });
+}
+
+function dumpSystemContext() {
+    dump = { sources: {} }
+    for (host in context.sources) {
+        dump.sources[host] = context.sources[host].toString(true);
+    }
+    mongo.connect(inceptorDB, function(err, db) {
+        if (err) {
+            logger.error(err.toString());
+            return;
+        }
+        db.collection("context").updateOne({}, dump, { upsert: true }, function(err, res) {
+            if (err) {
+                logger.error(err.toString());
+                return;
+            }
+            db.close();
+        });
+    });
+}
+
 function getSources() {
     var sources = context.sources;
     var res = [];
     for (host in sources) {
         var s = sources[host];
-        res.push(sourceInfo(s, false));
+        res.push(s.toString(false));
     };
     return res;
 }
@@ -152,7 +190,7 @@ function getSource(host) {
     var h = utils.validateHost(host);
     var sources = context.sources;
     if (h in sources) {
-        return sourceInfo(sources[h], false);
+        return sources[h].toString(false);
     } else {
         return null;
     }
@@ -163,7 +201,7 @@ function getSourceById(id) {
     for (host in sources) {
         var s = sources[host];
         if (s.id.toString() == id.toString()) {
-            return sourceInfo(s, false);
+            return s.toString(false);
         }
     }
     return null;
@@ -212,7 +250,7 @@ function doScheduler() {
         }
         if (source.timeout == null) {
             logger.info("New monitor service on " + host);
-            source.timeout = setInterval(trigger, config.interval, source);
+            source.timeout = setInterval(trigger, dataInterval, source);
         }
     }
     dumpSystemContext();
@@ -426,22 +464,6 @@ function fetchStages(source) {
         }
     }).auth(source.user, source.passwd, false);
 }
-
-function sourceInfo(s, showPassword) {
-    return {
-        id: s.id,
-        host: s.host,
-        user: s.user,
-        passwd: (!showPassword ? "******" : s.passwd),
-        registers: s.registers,
-        jobs: s.jobs,
-        stages: s.stages,
-        jobCheckpoint: s.jobCheckpoint,
-        stageCheckpoint: s.stageCheckpoint,
-        added: s.added,
-        active: s.active
-    }
-};
 
 var inceptor = {
     db: inceptorDB,

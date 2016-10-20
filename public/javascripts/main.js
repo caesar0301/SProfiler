@@ -89,15 +89,19 @@ function extractJobItems(jobs) {
 
 function onCurrentTimeTick(props) {
     var current = timeline.getCurrentTime();
-    if (current.getTime() - previous.getTime() >= 1000) {
+    var refreshInterval = 1000;
+    var windowSize = 60000;
+    var windowAnimation = 2000;
+    var updateMaxNum = 1000;
+    if (current.getTime() - previous.getTime() >= refreshInterval) {
         if (liveView) {
-            var win = resizeWindow(current, 60000);
+            var win = resizeWindow(current, windowSize);
             timeline.setWindow(win.start, win.end, {
-                duration: 2000
+                duration: windowAnimation
             });
         };
         if (liveData) {
-            updateDataItems(checkpoint, 1000);
+            updateDataItems(checkpoint, updateMaxNum);
             updateJobStat();
         }
         previous = current;

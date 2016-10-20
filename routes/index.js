@@ -29,17 +29,19 @@ router.get('/sources', function(req, res) {
  *                       as well as body {"source": "hostname"}.
  */
 router.post('/source', function(req, res) {
-    var host = req.body.source.host;
-    var action = req.body.source.action.toString().toLowerCase();
+    var host = req.body.host;
+    var action = req.body.action.toString().toLowerCase();
+    var user = req.body.username ? req.body.username : defaultUser;
+    var pass = req.body.password ? req.body.password : defaultPass;
     if (action == 'unregister') {
         inceptor.unregister(host);
         res.status(200).end();
     } else if (action == 'register') {
-        var s = inceptor.register(host);
+        var s = inceptor.register(host, user, pass);
         res.status(200).json(s);
     } else {
         res.status(500)
-            .json({ "error": "unsupported action " + req.body.source.action });
+            .json({ "error": "unsupported action " + req.body.action });
     }
 });
 

@@ -1,9 +1,8 @@
 
 var globalConfig = {
     port: 5050,
-    user: 'hive',
-    passwd: '123',
-    interval: 5000,
+    defaultUser: '',
+    defaultPass: '',
     db: "mongodb://localhost:27017",
 }
 
