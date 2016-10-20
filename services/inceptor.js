@@ -27,6 +27,14 @@ function loadSystemContext(callback) {
             }
             if (doc != null) {
                 context = doc;
+                if (doc.sources == null) {
+                    doc.sources = {};
+                } else {
+                    // reset sources
+                    for (host in context.sources) {
+                        context.sources[host].registers = 0;
+                    }
+                }
                 logger.info("System context configurations loaded.");
             } else {
                 context = {
@@ -202,15 +210,9 @@ function doScheduler() {
         if (!source.active) {
             continue;
         }
-        if (source.registers > 0) {
-            if (source.timeout == null) {
-                logger.info("New monitor service on " + host);
-                source.timeout = setInterval(trigger, config.interval, source);
-            }
-        } else {
-            // Remove idle sources
-            // logger.info("Source " + host + " removed due to zero registers.");
-            // remove(source);
+        if (source.timeout == null) {
+            logger.info("New monitor service on " + host);
+            source.timeout = setInterval(trigger, config.interval, source);
         }
     }
     dumpSystemContext();
@@ -276,6 +278,8 @@ function fetchJobs(source) {
             var checkpoint = source.jobCheckpoint;
             for (var i = 0; i < jobs.length; i++) {
                 var job = jobs[jobs.length - i - 1];
+                // remove ambigutiy of job ids among system restarts
+                job.globalId = job.jobGroup + "_" + job.jobId
                 stime = new Date(job.submissionTime);
                 dtime = new Date(job.completionTime);
                 (checkpoint == null) ? insertBatch.push(job): updateBatch.push(job);
@@ -297,7 +301,7 @@ function fetchJobs(source) {
                     for (var i = 0; i < updateBatch.length; i++) {
                         var job = updateBatch[i];
                         debug("Upsert job of #" + job.jobId + " (" + job.status + ")");
-                        col.updateOne({ jobId: job.jobId }, job, { upsert: true, w: 1 }, updateFinished);
+                        col.updateOne({ globalId: job.globalId }, job, { upsert: true, w: 1 }, updateFinished);
                     };
                 });
             };
@@ -372,6 +376,8 @@ function fetchStages(source) {
             var checkpoint = source.stageCheckpoint;
             for (var i = 0; i < stages.length; i++) {
                 var stage = stages[stages.length - i - 1];
+                // remove ambigutiy of job ids among system restarts
+                stage.globalId = stage.userName + '_' + stage.submissionTime + '_' + stage.stageId
                 stime = new Date(stage.submissionTime);
                 dtime = new Date(stage.completionTime);
                 (checkpoint == null) ? insertBatch.push(stage): updateBatch.push(stage);
@@ -393,7 +399,7 @@ function fetchStages(source) {
                     for (var i = 0; i < updateBatch.length; i++) {
                         var stage = updateBatch[i];
                         debug("Upsert stage of #" + stage.stageId + " (" + stage.status + ")");
-                        col.updateOne({ stageId: stage.stageId }, stage, { upsert: true, w: 1 }, updateFinished);
+                        col.updateOne({ globalId: stage.globalId }, stage, { upsert: true, w: 1 }, updateFinished);
                     };
                 });
             };
