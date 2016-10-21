@@ -13,13 +13,17 @@ var inceptorDB = config.dbserver + "/" + config.dbname;
  * Go to homepage
  */
 router.get('/', function(req, res, next) {
-    res.sendPath('../public/index.html');
+    res.sendFile(path.join(__dirname + '/../public/index.html'));
 });
 
 /**
  * A list of source configurations.
  */
-router.get('/sources', function(req, res) {
+router.get('/sources', function(req, res, next) {
+    res.sendFile(path.join(__dirname + '/../public/sources.html'));
+});
+
+router.get('/sources/json', function(req, res) {
     res.json(inceptor.getSources());
 });
 
