@@ -1,10 +1,9 @@
-# FROM ubuntu:16.04
-FROM 172.16.1.41:5000/ubuntu:16.04
+FROM ubuntu:16.04
 MAINTAINER Xiaming Chen <xiaming.chen@transwarp.io>
 
 ## PREREQUESITES
 RUN cp /etc/apt/sources.list /etc/apt/sources.list.save
-ADD https://raw.githubusercontent.com/caesar0301/warp-drive/master/config/ubuntu/sources.list.trusty /etc/apt/sources.list
+ADD sources.list.xenial /etc/apt/sources.list
 RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10
 RUN echo 'deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen' | tee /etc/apt/sources.list.d/mongodb.list
 
