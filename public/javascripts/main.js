@@ -109,7 +109,7 @@ function onCurrentTimeTick(props) {
 }
 
 function updateDataItems(check, max) {
-    var prefix = "/source/" + encodeURIComponent(Cookies.get("activeSource"));
+    var prefix = "/source/" + getCookie("activeSource").id;
     var c = (check == null ? 0 : check);
     var url = prefix + "/jobs?limit=" + max + "&c=" + c;
     $.get(url, function(rsp, status, xhr) {
@@ -144,7 +144,7 @@ function updateDataItems(check, max) {
 };
 
 function updateJobStat() {
-    var prefix = "/source/" + encodeURIComponent(Cookies.get("activeSource"));
+    var prefix = "/source/" + getCookie("activeSource").id;
     var url = prefix + "/stats";
     $.get(url, function(rsp, status, xhr) {
         var stats = rsp.stats;
@@ -174,4 +174,12 @@ function resizeWindow(currentTime, width) {
     var start = currentTime.getTime() - width * 0.875
     var end = currentTime.getTime() + width * 0.125
     return { start: start, end: end }
+}
+
+function getCookie(key) {
+    return eval('(' + Cookies.get(key) + ')');
+}
+
+function setCookie(key, val) {
+    Cookies.set(key, val);
 }

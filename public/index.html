@@ -63,49 +63,55 @@
 
       // GoNow button
       var gonow = {
-        setBusy: function(host) {
+        setBusy: function() {
           // change to running state
+          var source = getCookie("activeSource");
           $("#gonow").removeClass("btn-success").addClass("btn-danger").text("Stop");
-          $("#sourceInput").prop("readonly", "readonly").prop("value", host);
-          Cookies.set("gonowClicked", "true");
-          Cookies.set("activeSource", host);
+          $("#sourceInput").prop("readonly", "readonly").prop("value", source.host);
+          setCookie("gonowClicked", "true");
           liveData = true;
         },
         setIdle: function() {
           // change to idle state
           $("#gonow").removeClass("btn-danger").addClass("btn-success").text("Go!");
           $("#sourceInput").prop("readonly", "");
-          Cookies.set("gonowClicked", "false");
-          Cookies.set("activeSource", null);
+          setCookie("gonowClicked", "false");
           liveData = false;
+          setCookie("activeSource", null);
         },
         isBusy: function() {
-          return Cookies.get('gonowClicked') == "true";
+          return getCookie('gonowClicked');
         }
       };
 
       // GoNow button
       $("#gonow").click(function() {
         var host = $("#sourceInput").val();
-        console.log(host)
         if (host.length == 0 || host == null) {
-            $().toastmessage('showErrorToast', 'Feed me a valid site address, plz (e.g., 10.0.0.10.4040)')
-            return;
+          $().toastmessage('showErrorToast', 'Feed me a valid site address, plz (e.g., 10.0.0.10.4040)')
+          return;
         }
         var dataForm = {
-            host: host,
-            action: 'register'
+          host: host,
+          action: 'register',
+          username: 'chenxm',
+          password: '123'
         };
-        if ($("#gonow").hasClass('btn-success')) {
-          gonow.setBusy(host);
-          $().toastmessage('showNoticeToast', 'Start listening on ' + host);
-        } else {
-          gonow.setIdle();
-          dataForm.source.action = "unregister";
-          $().toastmessage('showNoticeToast', 'Stop listening on ' + host);
-        }
-        // register new source
-        $.post('/source', dataForm, null, "application/json");
+
+        $.post('/source', dataForm, "application/json")
+          .done(function(rsp) {
+            setCookie("activeSource", rsp)
+              // change button status
+            if ($("#gonow").hasClass('btn-success')) {
+              gonow.setBusy();
+              $().toastmessage('showNoticeToast', 'Start listening on ' + host);
+            } else {
+              gonow.setIdle();
+              dataForm.action = "unregister";
+              $().toastmessage('showNoticeToast', 'Stop listening on ' + host);
+            }
+          });
+
       });
       </script>
     </header>
@@ -134,8 +140,8 @@
 
         // recover state on refresh
         if (gonow.isBusy()) {
-          gonow.setBusy(Cookies.get("activeSource"));
-          console.log(liveData)
+          gonow.setBusy();
+          console.log('liveData = ' + liveData)
         };
         </script>
       </div>

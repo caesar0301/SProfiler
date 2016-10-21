@@ -7,7 +7,7 @@ var inceptor = require('../services/inceptor');
 var config = require('../common/config');
 var utils = require('../common/utils');
 var logger = require('../common/logger');
-var inceptorDB = config.db + "/inceptor";
+var inceptorDB = config.dbserver + "/" + config.dbname;
 
 /**
  * Go to homepage
@@ -46,25 +46,25 @@ router.post('/source', function(req, res) {
 });
 
 /**
- * Get the configuration of one source, given hostname or source id.
+ * Get the configuration of one source, given source id.
  */
-router.get('/source/:source', function(req, res) {
-    var idOrHost = decodeURIComponent(req.params['source']);
-    var source = deriveSource(idOrHost);
+router.get('/source/:sourceId', function(req, res) {
+    var sourceId = req.params['sourceId'];
+    var source = inceptor.getSourceById(parseInt(sourceId))
     if (source == null) {
-        res.status(500).json({ "error": "There is no source " + idOrHost });
+        res.status(500).json({ "error": "There is no source " + sourceId });
     } else {
         res.json(source);
     }
 });
 
-router.get('/source/:source/jobs', function(req, res) {
-    var idOrHost = decodeURIComponent(req.params['source']);
-    var source = deriveSource(idOrHost);
+router.get('/source/:sourceId/jobs', function(req, res) {
+    var sourceId = req.params['sourceId'];
+    var source = inceptor.getSourceById(parseInt(sourceId));
     var checkpoint = parseInt(req.query['c']);
     var limit = parseInt(req.query['limit']);
     if (source == null) {
-        res.status(500).json({ "error": "There is no source " + idOrHost });
+        res.status(500).json({ "error": "There is no source " + sourceId });
         return;
     }
     if (isNaN(checkpoint)) {
@@ -102,11 +102,11 @@ router.get('/source/:source/jobs', function(req, res) {
     });
 });
 
-router.get('/source/:source/stats', function(req, res) {
-    var idOrHost = decodeURIComponent(req.params['source']);
-    var source = deriveSource(idOrHost);
+router.get('/source/:sourceId/stats', function(req, res) {
+    var sourceId = req.params['sourceId'];
+    var source = inceptor.getSourceById(parseInt(sourceId));
     if (source == null) {
-        res.status(500).json({ "error": "There is no source " + idOrHost });
+        res.status(500).json({ "error": "There is no source " + sourceId });
         return;
     }
     mongo.connect(inceptorDB, function(err, db) {
@@ -125,15 +125,5 @@ router.get('/source/:source/stats', function(req, res) {
     })
 })
 
-function deriveSource(idOrHost) {
-    var target = parseInt(idOrHost);
-    var source = null;
-    if (isNaN(target)) {
-        source = inceptor.getSource(idOrHost);
-    } else {
-        source = inceptor.getSourceById(target);
-    }
-    return source;
-}
 
 module.exports = router;
