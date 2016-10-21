@@ -6,7 +6,7 @@ var backend = require('./backend');
 
 var scheduler = null;
 var schedulerInterval = 500;
-var dataInterval = 900;
+var dataInterval = 1000;
 var inceptorDB = config.dbserver + "/" + config.dbname;
 
 function Source(host, user, password) {
@@ -115,7 +115,7 @@ Context.prototype = {
             for (user in context.sources[host]) {
                 var s = context.sources[host][user];
                 if (s.id == id) {
-                    return s;
+                    return s.toString(false);
                 }
             }
         }
@@ -143,8 +143,9 @@ Context.prototype = {
         if (!(host in context.sources)) {
             context.sources[host] = {};
         }
-        context.sources[host][user] = new Source(null, null, null)
-        return context.sources[host][user].set(source)
+        context.sources[host][user] = new Source(null, null, null);
+        var res = context.sources[host][user].set(source);
+        return res;
     },
     register: function(hostname, user, pass) {
         var host = utils.validateHost(hostname);
@@ -153,6 +154,7 @@ Context.prototype = {
             ns.registers = 0;
         }
         ns.registers += 1;
+        context.dump();
         return ns.toString(false);
     },
     unregister: function(hostname, user) {
@@ -181,16 +183,16 @@ Context.prototype = {
         mongo.connect(inceptorDB, function(err, db) {
             if (err) {
                 logger.error(err.toString());
-                return;
+                db.close(); return;
             }
             db.collection("context").findOne({}, function(err, c) {
-                if (err) {
-                    logger.error(err.toString());
-                    return;
-                }
-                loadContextToLive(c);
                 db.close();
-                callback();
+                if (!err) {
+                    loadContextToLive(c);
+                    callback();
+                } else {
+                    logger.error(err.toString());
+                }
             });
         });
     },
@@ -200,14 +202,13 @@ Context.prototype = {
         mongo.connect(inceptorDB, function(err, db) {
             if (err) {
                 logger.error(err.toString());
-                return;
+                db.close(); return;
             }
-            db.collection("context").updateOne({}, prepareContextToDump(), { upsert: true }, function(err, res) {
+            db.collection("context").updateOne({}, prepareContextToDump(), { upsert: true }, function(err) {
+                db.close();
                 if (err) {
                     logger.error(err.toString());
-                    return;
                 }
-                db.close();
             });
         });
     },
@@ -216,7 +217,7 @@ Context.prototype = {
 function loadContextToLive(ctx) {
     if (ctx != null) {
         for (var i = 0; i < ctx.sources.length; i++) {
-            context.addOrUpdateSource(ctx.sources[i]).reset();
+            context.addOrUpdateSource(ctx.sources[i]);
         }
         logger.info("System context configurations loaded.");
     } else {
@@ -242,12 +243,12 @@ function prepareContextToDump() {
  */
 function start(mongoHost) {
     context.load(function() {
-        scheduler = setInterval(doScheduler, schedulerInterval);
+        scheduler = setInterval(triggerSources, schedulerInterval);
         logger.info("Inceptor service started.");
     });
 }
 
-function doScheduler() {
+function triggerSources() {
     var sources = context.sources;
     // activate new source added by user
     for (host in sources) {
@@ -262,8 +263,6 @@ function doScheduler() {
             }
         }
     }
-    // save runtime context
-    context.dump();
 }
 
 /**

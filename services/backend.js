@@ -82,7 +82,7 @@ function fetchJobs(source) {
                 mongo.connect(inceptorDB, function(err, db) {
                     if (err) {
                         logger.error(err.toString());
-                        return;
+                        db.close(); return;
                     }
                     var updateFinished = function() {
                         total--;
@@ -94,7 +94,7 @@ function fetchJobs(source) {
                     for (var i = 0; i < updateBatch.length; i++) {
                         var job = updateBatch[i];
                         debug("Upsert job of #" + job.jobId + " (" + job.status + ")");
-                        col.updateOne({ globalId: job.globalId }, job, { upsert: true, w: 1 }, updateFinished);
+                        col.updateOne({ globalId: job.globalId }, job, { upsert: true, }, updateFinished);
                     };
                 });
             };
@@ -105,14 +105,11 @@ function fetchJobs(source) {
                 mongo.connect(inceptorDB, function(err, db) {
                     if (err) {
                         logger.error(err.toString());
-                        return;
+                        db.close(); return;
                     }
                     db.collection(cname).insertMany(insertBatch, function(err, res) {
-                        if (err) {
-                            logger.error(err.toString());
-                            return;
-                        }
                         db.close();
+                        if (err) logger.error(err.toString());
                     });
                 });
             }
@@ -184,7 +181,7 @@ function fetchStages(source) {
                 mongo.connect(inceptorDB, function(err, db) {
                     if (err) {
                         logger.error(err.toString());
-                        return;
+                        db.close(); return;
                     }
                     var updateFinished = function() {
                         total--;
@@ -196,7 +193,7 @@ function fetchStages(source) {
                     for (var i = 0; i < updateBatch.length; i++) {
                         var stage = updateBatch[i];
                         debug("Upsert stage of #" + stage.stageId + " (" + stage.status + ")");
-                        col.updateOne({ globalId: stage.globalId }, stage, { upsert: true, w: 1 }, updateFinished);
+                        col.updateOne({ globalId: stage.globalId }, stage, { upsert: true }, updateFinished);
                     };
                 });
             };
@@ -207,14 +204,11 @@ function fetchStages(source) {
                 mongo.connect(inceptorDB, function(err, db) {
                     if (err) {
                         logger.error(err.toString());
-                        return;
+                        db.close(); return;
                     }
                     db.collection(cname).insertMany(insertBatch, function(err, res) {
-                        if (err) {
-                            logger.error(err.toString());
-                            return;
-                        }
                         db.close();
+                        if (err) logger.error(err.toString());
                     });
                 });
             }

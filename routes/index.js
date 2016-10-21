@@ -37,6 +37,7 @@ router.post('/source', function(req, res) {
     var action = req.body.action.toString().toLowerCase();
     var user = req.body.username ? req.body.username : config.defaultUser;
     var pass = req.body.password ? req.body.password : config.defaultPass;
+    console.log(req.body)
     if (action == 'unregister') {
         inceptor.unregister(host, user);
         res.status(200).end();
