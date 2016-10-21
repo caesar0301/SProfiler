@@ -31,7 +31,17 @@ npm start
 
 # Docker mode
 
-TODO
+``` bash
+cd docker
+docker build --rm -t schedprofiler .
+docker run schedprofiler
+```
+
+Checkout container's IP and visit http://IP:5050/
+
+``` bash
+docker inspect --format '{{ .NetworkSettings.IPAddress }}' <CONTAINER_ID>
+```
 
 # Preview
 
