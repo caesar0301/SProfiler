@@ -27,11 +27,10 @@ function Source(host, user, password) {
 Source.prototype = {
     constructor: Source,
     toString: function(showPassword) {
-        return {
+        var res = {
             id: this.id,
             host: this.host,
             user: this.user,
-            passwd: (!showPassword ? "******" : this.passwd),
             registers: this.registers,
             jobs: this.jobs,
             stages: this.stages,
@@ -40,6 +39,10 @@ Source.prototype = {
             added: this.added,
             active: this.active
         };
+        if (showPassword) {
+            res.passwd = this.passwd;
+        }
+        return res;
     },
     set: function(s) {
         this.id = s.id;

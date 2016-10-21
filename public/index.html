@@ -34,7 +34,9 @@
           <div class="collapse navbar-collapse" id="nav153bar-collapse-1">
             <form class="navbar-form navbar-left" role="form">
               <div class="input-group">
-                <input id="sourceInput" type="text" class="form-control" style="width:200px">
+                <input id="sourcehost" type="text" class="form-control" style="width:200px" placeholder="hostname:4040">
+                <input id="username" type="text" class="form-control" style="width:100px" placeholder="username">
+                <input id="password" type="password" class="form-control" style="width:100px" placeholder="password">
                 <span class="input-group-btn">
                     <button class="btn btn-success" style="width:65px" type="button" id="gonow">Go!</button>
                 </span>
@@ -54,7 +56,7 @@
         <!-- /.container-fluid -->
       </nav>
       <script>
-      $("#sourceInput").bind('keypress', function(e) {
+      $("#sourcehost").bind('keypress', function(e) {
         var code = e.keyCode || e.which;
         if (code == 13) { //Enter keycode
           $("#gonow").click()
@@ -67,14 +69,18 @@
           // change to running state
           var source = getCookie("activeSource");
           $("#gonow").removeClass("btn-success").addClass("btn-danger").text("Stop");
-          $("#sourceInput").prop("readonly", "readonly").prop("value", source.host);
+          $("#sourcehost").prop("readonly", "readonly").prop("value", source.host);
+          $("#username").prop("readonly", "readonly").prop("value", source.user);
+          $("#password").prop("readonly", "readonly").prop("value", '******');
           setCookie("gonowClicked", "true");
           liveData = true;
         },
         setIdle: function() {
           // change to idle state
           $("#gonow").removeClass("btn-danger").addClass("btn-success").text("Go!");
-          $("#sourceInput").prop("readonly", "");
+          $("#sourcehost").prop("readonly", "");
+          $("#username").prop("readonly", "");
+          $("#password").prop("readonly", "");
           setCookie("gonowClicked", "false");
           liveData = false;
           setCookie("activeSource", null);
@@ -86,16 +92,25 @@
 
       // GoNow button
       $("#gonow").click(function() {
-        var host = $("#sourceInput").val();
+        var host = $("#sourcehost").val();
+        var user = $("#username").val();
+        var pass = $("#password").val();
         if (host.length == 0 || host == null) {
-          $().toastmessage('showErrorToast', 'Feed me a valid site address, plz (e.g., 10.0.0.10.4040)')
+          $().toastmessage('showErrorToast', 'Feed me a valid site address, plz (e.g., 10.0.0.10.4040)');
           return;
+        }
+        if (user.length == 0 || user == null) {
+          user = "hive";
+          $().toastmessage('showWarningToast', 'Use default user [hive].');
+        }
+        if (pass.length == 0 || pass == null) {
+          $().toastmessage('showWarningToast', 'Empty password.');
         }
         var dataForm = {
           host: host,
-          action: 'register',
-          username: 'chenxm',
-          password: '123'
+          action: gonow.isBusy() ? 'unregister' : 'register',
+          username: user,
+          password: pass,
         };
 
         $.post('/source', dataForm, "application/json")
@@ -107,11 +122,12 @@
               $().toastmessage('showNoticeToast', 'Start listening on ' + host);
             } else {
               gonow.setIdle();
-              dataForm.action = "unregister";
               $().toastmessage('showNoticeToast', 'Stop listening on ' + host);
             }
+          })
+          .fail(function(err) {
+            $().toastmessage('showErrorToast', JSON.stringfy(err));
           });
-
       });
       </script>
     </header>
