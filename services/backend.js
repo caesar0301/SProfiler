@@ -80,6 +80,10 @@ function fetchJobs(source) {
             if (updateBatch.length > 0) {
                 var total = updateBatch.length;
                 mongo.connect(inceptorDB, function(err, db) {
+                    if (err) {
+                        logger.error(err.toString());
+                        return;
+                    }
                     var updateFinished = function() {
                         total--;
                         if (total == 0) {
@@ -178,6 +182,10 @@ function fetchStages(source) {
             if (updateBatch.length > 0) {
                 var total = updateBatch.length;
                 mongo.connect(inceptorDB, function(err, db) {
+                    if (err) {
+                        logger.error(err.toString());
+                        return;
+                    }
                     var updateFinished = function() {
                         total--;
                         if (total == 0) {

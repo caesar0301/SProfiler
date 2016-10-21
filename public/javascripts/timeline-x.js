@@ -133,7 +133,7 @@ function updateDataItems(check, max) {
             var server = new Date().getTime();
             for (i = 0; i < res.items.length; i++) {
                 var item = res.items[i];
-                if(item.end != null && item.end.getTime() > server) {
+                if (item.end != null && item.end.getTime() > server) {
                     server = item.end.getTime();
                 };
             }

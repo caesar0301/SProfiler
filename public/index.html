@@ -9,7 +9,7 @@
   <script src="javascripts/bootstrap.min.js"></script>
   <script src="javascripts/js.cookie.js"></script>
   <script src="javascripts/jquery.toastmessage.js"></script>
-  <script src="javascripts/main.js"></script>
+  <script src="javascripts/timeline-x.js"></script>
   <link href="stylesheets/vis.min.css" rel="stylesheet" type="text/css" />
   <link href="stylesheets/bootstrap.min.css" rel="stylesheet" type="text/css" />
   <link href="stylesheets/bootstrap-theme.min.css" rel="stylesheet" type="text/css" />
@@ -32,7 +32,7 @@
           </div>
           <!-- Collect the nav links, forms, and other content for toggling -->
           <div class="collapse navbar-collapse" id="nav153bar-collapse-1">
-            <form class="navbar-form navbar-left" role="form">
+            <form class="navbar-form navbar-left" role="form" id="sourceForm">
               <div class="input-group">
                 <input id="sourcehost" type="text" class="form-control" style="width:200px" placeholder="hostname:4040">
                 <input id="username" type="text" class="form-control" style="width:100px" placeholder="username">
@@ -56,31 +56,61 @@
         <!-- /.container-fluid -->
       </nav>
       <script>
-      $("#sourcehost").bind('keypress', function(e) {
+      $("#sourceForm").bind('keypress', function(e) {
         var code = e.keyCode || e.which;
         if (code == 13) { //Enter keycode
           $("#gonow").click()
         }
       });
 
+      var sourceForm = {
+        setBusy: function() {
+          var source = getCookie("activeSource");
+          $("#sourcehost").prop("readonly", "readonly").prop("value", source.host);
+          $("#username").prop("readonly", "readonly").prop("value", source.user);
+          $("#password").prop("readonly", "readonly").prop("value", '******');
+        },
+        setIdle: function() {
+          $("#sourcehost").prop("readonly", "");
+          $("#username").prop("readonly", "");
+          $("#password").prop("readonly", "");
+        },
+        getValues: function() {
+          var host = $("#sourcehost").val();
+          var user = $("#username").val();
+          var pass = $("#password").val();
+          if (host.length == 0 || host == null) {
+            $().toastmessage('showErrorToast', 'Feed me a valid site address, plz (e.g., 10.0.0.10.4040)');
+            return;
+          }
+          if (user.length == 0 || user == null) {
+            user = "hive";
+            $().toastmessage('showWarningToast', 'Use default user [hive].');
+          }
+          if (pass.length == 0 || pass == null) {
+            $().toastmessage('showWarningToast', 'Empty password.');
+          }
+          return {
+            host: host,
+            user: user,
+            pass: pass
+          }
+        }
+      }
+
       // GoNow button
       var gonow = {
         setBusy: function() {
           // change to running state
-          var source = getCookie("activeSource");
           $("#gonow").removeClass("btn-success").addClass("btn-danger").text("Stop");
-          $("#sourcehost").prop("readonly", "readonly").prop("value", source.host);
-          $("#username").prop("readonly", "readonly").prop("value", source.user);
-          $("#password").prop("readonly", "readonly").prop("value", '******');
+          sourceForm.setBusy();
           setCookie("gonowClicked", "true");
           liveData = true;
         },
         setIdle: function() {
           // change to idle state
           $("#gonow").removeClass("btn-danger").addClass("btn-success").text("Go!");
-          $("#sourcehost").prop("readonly", "");
-          $("#username").prop("readonly", "");
-          $("#password").prop("readonly", "");
+          sourceForm.setIdle();
           setCookie("gonowClicked", "false");
           liveData = false;
           setCookie("activeSource", null);
@@ -92,25 +122,12 @@
 
       // GoNow button
       $("#gonow").click(function() {
-        var host = $("#sourcehost").val();
-        var user = $("#username").val();
-        var pass = $("#password").val();
-        if (host.length == 0 || host == null) {
-          $().toastmessage('showErrorToast', 'Feed me a valid site address, plz (e.g., 10.0.0.10.4040)');
-          return;
-        }
-        if (user.length == 0 || user == null) {
-          user = "hive";
-          $().toastmessage('showWarningToast', 'Use default user [hive].');
-        }
-        if (pass.length == 0 || pass == null) {
-          $().toastmessage('showWarningToast', 'Empty password.');
-        }
+        var sform = sourceForm.getValues();
         var dataForm = {
-          host: host,
+          host: sform.host,
           action: gonow.isBusy() ? 'unregister' : 'register',
-          username: user,
-          password: pass,
+          username: sform.user,
+          password: sform.pass,
         };
 
         $.post('/source', dataForm, "application/json")
@@ -119,11 +136,12 @@
               // change button status
             if ($("#gonow").hasClass('btn-success')) {
               gonow.setBusy();
-              $().toastmessage('showNoticeToast', 'Start listening on ' + host);
+              $().toastmessage('showNoticeToast', 'Start listening on ' + sform.host);
             } else {
               gonow.setIdle();
-              $().toastmessage('showNoticeToast', 'Stop listening on ' + host);
+              $().toastmessage('showNoticeToast', 'Stop listening on ' + sform.host);
             }
+            window.location.reload() //forcedly
           })
           .fail(function(err) {
             $().toastmessage('showErrorToast', "Bad request.");
@@ -153,7 +171,8 @@
         timeline.on("doubleClick", function(props) {
           liveView = true;
         });
-
+        </script>
+        <script>
         // recover state on refresh
         if (gonow.isBusy()) {
           gonow.setBusy();
