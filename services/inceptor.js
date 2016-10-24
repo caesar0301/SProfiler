@@ -91,12 +91,12 @@ Context.prototype = {
         this.counter += 1;
         return id;
     },
-    getSources: function(showPassword) {
+    getSources: function() {
         var res = [];
         for (host in context.sources) {
             for (user in context.sources[host]) {
                 var s = context.sources[host][user];
-                res.push(s.toString(showPassword));
+                res.push(s);
             }
         };
         return res;
@@ -106,7 +106,7 @@ Context.prototype = {
         if (host in context.sources) {
             for (user in context.sources[host]) {
                 var s = context.sources[host][user];
-                res.push(s.toString(false));
+                res.push(s);
             }
         }
         return res;
@@ -114,7 +114,7 @@ Context.prototype = {
     getSource: function(host, user) {
         if (host in context.sources) {
             if (user in context.sources[host]) {
-                return context.sources[host][user].toString(false)
+                return context.sources[host][user]
             }
         }
         return null;
@@ -124,7 +124,7 @@ Context.prototype = {
             for (user in context.sources[host]) {
                 var s = context.sources[host][user];
                 if (s.id == id) {
-                    return s.toString(false);
+                    return s;
                 }
             }
         }
@@ -210,7 +210,7 @@ Context.prototype = {
                 }
             });
         });
-    },
+    }
 }
 
 function loadContextToLive(ctx) {
@@ -229,7 +229,7 @@ function prepareContextToDump() {
     D = {};
     for (key in context) {
         if (key == 'sources') {
-            D[key] = context.getSources(true);
+            D[key] = context.getSources();
         } else {
             D[key] = context[key]
         }
@@ -259,9 +259,6 @@ function doScheduler() {
             if (s.timeout == null) {
                 logger.info("New monitor service on " + host);
                 s.timeout = setInterval(backend.trigger, dataInterval, s);
-            }
-            if (s.registers <= 0) {
-                context.remove(s);
             }
         }
     }
@@ -293,7 +290,6 @@ function stop() {
 var context = new Context();
 var inceptor = {
     getSources: context.getSources,
-    getSource: context.getSource,
     getSourceById: context.getSourceById,
     register: context.register,
     unregister: context.unregister,

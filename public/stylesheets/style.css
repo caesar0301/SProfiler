@@ -1,8 +1,100 @@
-body {
-  padding: 50px;
-  font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+/**
+ * main framework
+ */
+
+.main-body {
+  background-color: #000000;
 }
 
-a {
-  color: #00B7FF;
+.wrap-screen {
+  background-color: #000000;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: absolute;
+}
+
+.cvHeadCinactive {
+  color: #FFFFFF;
+  background-color: #CC00FF;
+  overflow: hidden;
+}
+
+
+/**
+ * Table
+ */
+span.status-STOP {
+  border: 1px solid #d9534f;
+  padding: 1px 5px 0;
+  background: #d9534f;
+  color: #fff
+}
+
+span.status-RUNNING {
+  border: 1px solid #EBBA16;
+  padding: 1px 5px 0;
+  background: #EBBA16;
+  color: #fff
+}
+
+
+/**
+ * Vis.timeline
+ */
+
+.vis-timeline {
+  background-color: #000000;
+}
+
+.vis-background {
+  overflow: hiddene;
+}
+
+.vis-panel.vis-left,
+.vis-panel.vis-right,
+.vis-panel.vis-top,
+.vis-panel.vis-bottom {
+  background-color: #5F0087;
+}
+
+.vis-panel > .vis-content {
+  position: relative;
+}
+
+.vis-time-axis .vis-grid.vis-minor {
+  border: 1px dashed #333333;
+}
+
+.vis-time-axis .vis-text,
+.vis-data-axis .vis-y-axis.vis-major,
+.vis-labelset .vis-label {
+  color: #FFFFFF;
+}
+
+.vis-current-time {
+  background-color: #00ccff;
+  border-left: ;
+  border-right: 1px solid #716969;
+  box-shadow: 0 0 20px #00ccff;
+  width: 4px;
+  z-index: 10;
+}
+
+.vis-item {
+  color: #E8A42E;
+  border-color: #093D55;
+  background-color: #093D55;
+}
+
+.vis-item-content {
+  margin-left: "50%";
+}
+
+.vis-item.vis-selected {
+  color: #000000;
+  border-color: #56B056;
+  background-color: #56B056;
+  /* z-index must be higher than the z-index of custom time bar and current time bar */
+  z-index: 2;
 }

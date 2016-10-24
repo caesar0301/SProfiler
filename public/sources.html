@@ -4,37 +4,97 @@
 <head>
   <title>Inceptor Scheduler Profiler</title>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  <script src="javascripts/vis.min.js"></script>
   <script src="javascripts/jquery.min.js"></script>
-  <script src="javascripts/bootstrap.min.js"></script>
-  <script src="javascripts/js.cookie.js"></script>
   <script src="javascripts/jquery.toastmessage.js"></script>
-  <script src="javascripts/timeline-x.js"></script>
-  <link href="stylesheets/vis.min.css" rel="stylesheet" type="text/css" />
+  <script src="javascripts/bootstrap.min.js"></script>
+  <script src="javascripts/bootstrap-table.min.js"></script>
+  <script src="javascripts/js.cookie.js"></script>
   <link href="stylesheets/bootstrap.min.css" rel="stylesheet" type="text/css" />
   <link href="stylesheets/bootstrap-theme.min.css" rel="stylesheet" type="text/css" />
+  <link href="stylesheets/bootstrap-table.min.css" rel="stylesheet" type="text/css" />
   <link href="stylesheets/jquery.toastmessage.css" rel="stylesheet" type="text/css" />
-  <link href="stylesheets/main.css" rel="stylesheet" type="text/css" />
+  <link href="stylesheets/style.css" rel="stylesheet" type="text/css" />
 </head>
 
-<body class="main-body">
-  <div id="wrapScreen" class="wrap-screen">
-    <header id="wrapScreenHeader">
-      <nav class="navbar navbar-inverse">
-        <div class="container-fluid">
-          <!-- Brand and toggle get grouped for better mobile display -->
-          <div class="navbar-header">
-            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" aria-expanded="false">
-              <span class="sr-only">Toggle navigation</span>
-              <span class="icon-bar"></span>
-            </button>
-            <a class="navbar-brand" href="/">SchedProfiler</a>
-          </div>
+<body>
+  <header>
+    <nav class="navbar navbar-inverse">
+      <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" aria-expanded="false">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="/">SchedProfiler</a>
         </div>
-        <!-- /.container-fluid -->
-      </nav>
-    </header>
-  </div>
+      </div>
+      <!-- /.container-fluid -->
+    </nav>
+  </header>
+  <main>
+    <div class="container">
+      <div>
+        <h1>Data sources <i class="fa-stop-circle" aria-hidden="true"></i></h1>
+        <p>Data source is a data generator identified by a unique combination of
+          <mark>{IP address, user name}</mark>. The fetched data of each source is stored in separate collections.</p>
+        <table id="sourceTable" data-search="true" data-pagination="true" data-side-pagination="client" data-height="450" data-classes="table table-no-bordered">
+          <thead>
+            <tr>
+              <th data-field="id">ID</th>
+              <th data-field="address">Host</th>
+              <th data-field="user">User</th>
+              <th data-field="age" data-formatter='ageFormatter'>Age</th>
+              <th data-field="status" data-formatter='statusFormatter'>Status</th>
+              <th data-field="action" data-formatter='actionFormatter'>Action</th>
+            </tr>
+          </thead>
+        </table>
+      </div>
+      <script>
+      var $table = $('#sourceTable');
+      $.getJSON("sources/json", function(data) {
+        var sources = [];
+        $.each(data, function(key, src) {
+          sources.push({
+            id: src.id,
+            address: src.host,
+            age: new Date().getTime() - parseInt(src.added),
+            user: src.user,
+            status: src.active,
+            action: src,
+          })
+        })
+        $table.bootstrapTable({
+          data: sources
+        });
+      });
+
+      function ageFormatter(value) {
+        var sec = value / 1000;
+        if (value < 60) {
+            return sec + ' secs';
+        } else if (value < 3600) {
+            return (sec / 60).toFixed(1) + ' mins';
+        } else {
+            return (sec / 3600).toFixed(1) + ' hours';
+        }
+      }
+
+      function statusFormatter(value) {
+        var status = value ? 'RUNNING' : 'STOPPED';
+        var cls = value ? 'status-RUNNING' : 'status-STOP';
+        return '<span data-value="' + status + '" class="' + cls + '">' + status + '</span>'
+      }
+
+      function actionFormatter(src) {
+        var image = src.active ? 'stop.svg' : 'play.svg';
+        var url = '/source/' + src.id + '/' + (src.active ? 'stop' : 'start');
+        return '<a href="' + url +'"> <img src="images/'+ image +'" height="20"/></a>'
+      }
+      </script>
+    </div>
+  </main>
 </body>
 
 </html>

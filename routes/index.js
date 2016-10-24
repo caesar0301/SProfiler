@@ -22,7 +22,12 @@ router.get('/sources', function(req, res, next) {
 });
 
 router.get('/sources/json', function(req, res) {
-    res.json(inceptor.getSources());
+    var sources = inceptor.getSources();
+    var srcstr = [];
+    for (var i = 0; i < sources.length; i++) {
+        srcstr.push(sources[i].toString(false));
+    }
+    res.json(srcstr);
 });
 
 /**
@@ -57,7 +62,7 @@ router.get('/source/:sourceId', function(req, res) {
     if (source == null) {
         res.status(500).json({ "error": "There is no source " + sourceId });
     } else {
-        res.json(source);
+        res.json(source.toString(false));
     }
 });
 
@@ -115,6 +120,28 @@ router.get('/source/:sourceId/stats', function(req, res) {
             });
         });
     });
+});
+
+router.get('/source/:sourceId/start', function(req, res) {
+    var sourceId = req.params['sourceId'];
+    var source = inceptor.getSourceById(parseInt(sourceId));
+    if (source == null) {
+        res.status(500).json({ "error": "There is no source " + sourceId });
+        return;
+    }
+    source.active = true;
+    res.redirect('/sources');
+});
+
+router.get('/source/:sourceId/stop', function(req, res) {
+    var sourceId = req.params['sourceId'];
+    var source = inceptor.getSourceById(parseInt(sourceId));
+    if (source == null) {
+        res.status(500).json({ "error": "There is no source " + sourceId });
+        return;
+    }
+    source.active = false;
+    res.redirect('/sources');
 });
 
 
