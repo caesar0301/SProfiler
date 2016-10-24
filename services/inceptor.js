@@ -1,4 +1,4 @@
-var mongo = require('mongodb').MongoClient;
+var mongodb = require('../services/mongodb');
 var config = require('../common/config');
 var utils = require('../common/utils');
 var logger = require('../common/logger');
@@ -7,7 +7,6 @@ var backend = require('./backend');
 var scheduler = null;
 var schedulerInterval = 500;
 var dataInterval = 1000;
-var inceptorDB = config.dbserver + "/" + config.dbname;
 
 function Source(host, user, password) {
     this.id = context.getNewId();
@@ -22,6 +21,7 @@ function Source(host, user, password) {
     this.timeout = null;
     this.added = Date.now();
     this.active = true;
+    this.status = null;
 }
 
 Source.prototype = {
@@ -37,7 +37,8 @@ Source.prototype = {
             jobCheckpoint: this.jobCheckpoint,
             stageCheckpoint: this.stageCheckpoint,
             added: this.added,
-            active: this.active
+            active: this.active,
+            status: this.status,
         };
         if (showPassword) {
             res.passwd = this.passwd;
@@ -56,6 +57,7 @@ Source.prototype = {
         this.timeout = s.timeout;
         this.added = s.added;
         this.active = s.active;
+        this.status = s.status;
         return this;
     },
     reset: function() {
@@ -64,7 +66,14 @@ Source.prototype = {
         this.stageCheckpoint = null;
         this.timeout = null;
         this.active = true;
+        this.status = null;
         return this;
+    },
+    errorStatus: function(err) {
+        if (err) {
+            logger.error(err.toString());
+            this.status = err.toString();
+        }
     }
 }
 
@@ -180,13 +189,8 @@ Context.prototype = {
         }
     },
     load: function(callback) {
-        mongo.connect(inceptorDB, function(err, db) {
-            if (err) {
-                logger.error(err.toString());
-                db.close(); return;
-            }
+        mongodb.getInstance(function(db) {
             db.collection("context").findOne({}, function(err, c) {
-                db.close();
                 if (!err) {
                     loadContextToLive(c);
                     callback();
@@ -199,13 +203,8 @@ Context.prototype = {
     dump: function() {
         if (!context.loaded)
             return;
-        mongo.connect(inceptorDB, function(err, db) {
-            if (err) {
-                logger.error(err.toString());
-                db.close(); return;
-            }
+        mongodb.getInstance(function(db) {
             db.collection("context").updateOne({}, prepareContextToDump(), { upsert: true }, function(err) {
-                db.close();
                 if (err) {
                     logger.error(err.toString());
                 }
@@ -241,14 +240,14 @@ function prepareContextToDump() {
 /**
  * Start the monitor service.
  */
-function start(mongoHost) {
+function start() {
     context.load(function() {
-        scheduler = setInterval(triggerSources, schedulerInterval);
+        scheduler = setInterval(doScheduler, schedulerInterval);
         logger.info("Inceptor service started.");
     });
 }
 
-function triggerSources() {
+function doScheduler() {
     var sources = context.sources;
     // activate new source added by user
     for (host in sources) {
@@ -260,6 +259,9 @@ function triggerSources() {
             if (s.timeout == null) {
                 logger.info("New monitor service on " + host);
                 s.timeout = setInterval(backend.trigger, dataInterval, s);
+            }
+            if (s.registers <= 0) {
+                context.remove(s);
             }
         }
     }
@@ -290,7 +292,6 @@ function stop() {
 
 var context = new Context();
 var inceptor = {
-    db: inceptorDB,
     getSources: context.getSources,
     getSource: context.getSource,
     getSourceById: context.getSourceById,

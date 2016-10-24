@@ -141,7 +141,7 @@
               gonow.setIdle();
               $().toastmessage('showNoticeToast', 'Stop listening on ' + sform.host);
             }
-            window.location.reload() //forcedly
+            // window.location.reload() //forcedly
           })
           .fail(function(err) {
             $().toastmessage('showErrorToast', "Bad request.");

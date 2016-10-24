@@ -1,13 +1,11 @@
 var express = require('express');
 var path = require('path')
 var router = express.Router();
-var mongo = require('mongodb').MongoClient;
-
+var mongodb = require('../services/mongodb');
 var inceptor = require('../services/inceptor');
 var config = require('../common/config');
 var utils = require('../common/utils');
 var logger = require('../common/logger');
-var inceptorDB = config.dbserver + "/" + config.dbname;
 
 /**
  * Go to homepage
@@ -85,11 +83,7 @@ router.get('/source/:sourceId/jobs', function(req, res) {
             completionTime: null,
         }]
     };
-    mongo.connect(inceptorDB, function(err, db) {
-        if (err) {
-            logger.error(err.toString());
-            return;
-        }
+    mongodb.getInstance(function(db) {
         db.collection(source.jobs).find(query, {
             _id: false,
             limit: limit,
@@ -97,12 +91,7 @@ router.get('/source/:sourceId/jobs', function(req, res) {
                 ['submissionTime', -1]
             ]
         }).toArray(function(err, docs) {
-            if (err) {
-                logger.error(err.toString());
-                return;
-            }
             res.json(docs);
-            db.close();
         });
     });
 });
@@ -114,21 +103,19 @@ router.get('/source/:sourceId/stats', function(req, res) {
         res.status(500).json({ "error": "There is no source " + sourceId });
         return;
     }
-    mongo.connect(inceptorDB, function(err, db) {
-        if (err) {logger.error(err.toString());return;}
+    mongodb.getInstance(function(db) {
         db.collection(source.jobs).count(function(err, numJobs) {
-            if (err) {logger.error(err.toString());return;}
             db.collection(source.stages).count(function(err, numStages) {
                 res.json({
                     stats: {
                         numJobs: numJobs,
                         numStages: numStages,
-                    }
-                })
-            })
-        })
-    })
-})
+                    },
+                });
+            });
+        });
+    });
+});
 
 
 module.exports = router;
