@@ -5,14 +5,20 @@ var config = require('../common/config');
 var logger = require('../common/logger');
 
 var df = "yyyymmddHHMMss";
+var jobLastRequestFinished = true;
+var stageLastRequestFinished = true;
 
 /**
  * Do the dirty job to fetch data from remote REST.
  */
 function trigger(source) {
     try {
-        fetchJobs(source);
-        fetchStages(source);
+        if (jobLastRequestFinished) {
+            fetchJobs(source);
+        }
+        if (stageLastRequestFinished) {
+            fetchStages(source);
+        }
     } catch (err) {
         source.errorStatus(err);
     }
@@ -31,17 +37,14 @@ function fetchJobs(source) {
     }
     var api = source.host + "/api/jobs?userId=" + source.user + "&afterTime=" + after;
     debug(api);
-
+    jobLastRequestFinished = false;
     request(api, function(err, response, body) {
+        jobLastRequestFinished = true;
         if (err) {
             source.errorStatus(err);
-            return;
-        }
-        if (response.statusCode == 401) {
+        } else if (response.statusCode == 401) {
             source.errorStatus('Unauthorized!');
-            return;
-        }
-        if (response.statusCode == 200) {
+        } else if (response.statusCode == 200) {
             var jobs = {};
             try {
                 jobs = JSON.parse(body);
@@ -82,7 +85,7 @@ function fetchJobs(source) {
                     for (var i = 0; i < updateBatch.length; i++) {
                         var job = updateBatch[i];
                         debug("Upsert job of #" + job.jobId + " (" + job.status + ")");
-                        col.updateOne({ globalId: job.globalId }, job, { upsert: true, w: 1});
+                        col.updateOne({ globalId: job.globalId }, job, { upsert: true, w: 1 });
                     };
                 });
             };
@@ -104,17 +107,14 @@ function fetchStages(source) {
     }
     var api = source.host + "/api/stages?userId=" + source.user + "&details=true&afterTime=" + after;
     debug(api);
-
+    stageLastRequestFinished = false;
     request(api, function(err, response, body) {
+        stageLastRequestFinished = true;
         if (err) {
             source.errorStatus(err);
-            return;
-        }
-        if (response.statusCode == 401) {
+        } else if (response.statusCode == 401) {
             source.errorStatus('Unauthorized!');
-            return;
-        }
-        if (response.statusCode == 200) {
+        } else if (response.statusCode == 200) {
             var stages = {};
             try {
                 stages = JSON.parse(body);
@@ -155,7 +155,7 @@ function fetchStages(source) {
                     for (var i = 0; i < updateBatch.length; i++) {
                         var stage = updateBatch[i];
                         debug("Upsert stage of #" + stage.stageId + " (" + stage.status + ")");
-                        col.updateOne({ globalId: stage.globalId }, stage, { upsert: true, w:1});
+                        col.updateOne({ globalId: stage.globalId }, stage, { upsert: true, w: 1 });
                     };
                 });
             };
