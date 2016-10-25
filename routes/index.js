@@ -129,7 +129,7 @@ router.get('/source/:sourceId/start', function(req, res) {
         res.status(500).json({ "error": "There is no source " + sourceId });
         return;
     }
-    source.active = true;
+    inceptor.enableSource(source);
     res.redirect('/sources');
 });
 
@@ -140,7 +140,7 @@ router.get('/source/:sourceId/stop', function(req, res) {
         res.status(500).json({ "error": "There is no source " + sourceId });
         return;
     }
-    source.active = false;
+    inceptor.disableSource(source);
     res.redirect('/sources');
 });
 

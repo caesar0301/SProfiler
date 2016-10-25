@@ -38,12 +38,17 @@
         <h1>Data sources <i class="fa-stop-circle" aria-hidden="true"></i></h1>
         <p>Data source is a data generator identified by a unique combination of
           <mark>{IP address, user name}</mark>. The fetched data of each source is stored in separate collections.</p>
-        <table id="sourceTable" data-search="true" data-pagination="true" data-side-pagination="client" data-height="450" data-classes="table table-no-bordered">
+        <div id="toolbar">
+          <button id="buttonRemove" class="btn btn-default" style="width: 80px">Remove</button>
+          <button id="buttonCreate" class="btn btn-success" style="width: 80px">New</button>
+        </div>
+        <table id="sourceTable" data-pagination="true" data-side-pagination="client" data-height="450" data-classes="table table-no-bordered">
           <thead>
             <tr>
+              <th data-field="state" data-checkbox="true"></th>
               <th data-field="id">ID</th>
-              <th data-field="address">Host</th>
-              <th data-field="user">User</th>
+              <th data-field="address" data-editable="true">Host</th>
+              <th data-field="user" data-editable="true">User</th>
               <th data-field="age" data-formatter='ageFormatter'>Age</th>
               <th data-field="status" data-formatter='statusFormatter'>Status</th>
               <th data-field="action" data-formatter='actionFormatter'>Action</th>
@@ -73,11 +78,11 @@
       function ageFormatter(value) {
         var sec = value / 1000;
         if (value < 60) {
-            return sec + ' secs';
+          return sec + ' secs';
         } else if (value < 3600) {
-            return (sec / 60).toFixed(1) + ' mins';
+          return (sec / 60).toFixed(1) + ' mins';
         } else {
-            return (sec / 3600).toFixed(1) + ' hours';
+          return (sec / 3600).toFixed(1) + ' hours';
         }
       }
 
@@ -90,7 +95,7 @@
       function actionFormatter(src) {
         var image = src.active ? 'stop.svg' : 'play.svg';
         var url = '/source/' + src.id + '/' + (src.active ? 'stop' : 'start');
-        return '<a href="' + url +'"> <img src="images/'+ image +'" height="20"/></a>'
+        return '<a href="' + url + '"> <img src="images/' + image + '" height="20"/></a>'
       }
       </script>
     </div>

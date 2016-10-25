@@ -19,7 +19,7 @@
 
 <body class="main-body">
   <div id="wrapScreen" class="wrap-screen">
-    <header id="wrapScreenHeader">
+    <header id="headbar">
       <nav class="navbar navbar-inverse">
         <div class="container-fluid">
           <!-- Brand and toggle get grouped for better mobile display -->
@@ -150,12 +150,12 @@
       });
       </script>
     </header>
-    <main id="wrapScreenMain">
+    <main id="mainscreen">
       <div>
         <div id="visualization" style="height: 600px"></div>
         <script type="text/javascript">
         // Timeline
-        var height = ($(document).height() - $("#wrapScreenHeader").outerHeight()) + 'px';
+        var height = ($(document).height() - $("#headbar").outerHeight()) + 'px';
         var timeline = createTimeline("visualization", height);
         timeline.setGroups(visGroups);
         timeline.setItems(visItems);

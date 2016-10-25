@@ -156,6 +156,21 @@ Context.prototype = {
         var res = context.sources[host][user].set(source);
         return res;
     },
+    enableSource: function(source) {
+        if (!source) return;
+        source.active = true;
+        context.dump();
+    },
+    disableSource: function(source) {
+        if (!source) return;
+        if (source.timeout != null) {
+            logger.info("Stopped monitoring service on source " + source.id);
+            clearInterval(source.timeout);
+        }
+        source.reset();
+        source.active = false;
+        context.dump();
+    },
     register: function(hostname, user, pass) {
         var host = utils.validateHost(hostname);
         var ns = context.getOrCreateSource(host, user, pass);
@@ -174,19 +189,6 @@ Context.prototype = {
             return sources[host][user].toString(false);
         };
         return null;
-    },
-    remove: function(source) {
-        if (source.registers > 0) {
-            logger.error("Failed to remove busy source " + source.host);
-        } else {
-            if (source.timeout != null) {
-                logger.info("Stopped monitor service on " + source.host);
-                clearInterval(source.timeout);
-            }
-            // delete context.sources[source.host][source.user];
-            source.reset();
-            source.active = false;
-        }
     },
     load: function(callback) {
         mongodb.getInstance(function(db) {
@@ -291,11 +293,12 @@ var context = new Context();
 var inceptor = {
     getSources: context.getSources,
     getSourceById: context.getSourceById,
+    enableSource: context.enableSource,
+    disableSource: context.disableSource,
     register: context.register,
     unregister: context.unregister,
-    remove: context.remove,
     start: start,
-    stop: stop
+    stop: stop,
 }
 
 module.exports = inceptor;
