@@ -8,19 +8,19 @@ var scheduler = null;
 var schedulerInterval = 500;
 var dataInterval = 1000;
 
-function Source(host, user, password) {
-    this.id = context.getNewId();
+function Source(host, user, password, active) {
+    this.id = utils.generateRandomID();
     this.host = host;
     this.user = user;
     this.passwd = password;
     this.registers = 0;
-    this.jobs = "S" + this.id + "_JOBS";
-    this.stages = "S" + this.id + "_STAGES";
+    this.jobs = this.id + "_JOBS";
+    this.stages = this.id + "_STAGES";
     this.jobCheckpoint = null;
     this.stageCheckpoint = null; // the Timeout instance of setInterval
     this.timeout = null;
     this.added = Date.now();
-    this.active = true;
+    this.active = active ? true : false;
     this.status = null;
 }
 
@@ -46,18 +46,18 @@ Source.prototype = {
         return res;
     },
     set: function(s) {
-        this.id = s.id;
-        this.host = s.host;
-        this.user = s.user;
-        this.passwd = s.passwd;
-        this.registers = s.registers;
-        this.jobs = s.jobs;
-        this.stages = s.stages;
-        this.jobCheckpoint = s.jobCheckpoint;
-        this.timeout = s.timeout;
-        this.added = s.added;
-        this.active = s.active;
-        this.status = s.status;
+        if ('id' in s) this.id = s.id;
+        if ('host' in s) this.host = s.host;
+        if ('user' in s) this.user = s.user;
+        if ('passwd' in s) this.passwd = s.passwd;
+        if ('registers' in s) this.registers = s.registers;
+        if ('jobs' in s) this.jobs = s.jobs;
+        if ('stages' in s) this.stages = s.stages;
+        if ('jobCheckpoint' in s) this.jobCheckpoint = s.jobCheckpoint;
+        if ('timeout' in s) this.timeout = s.timeout;
+        if ('added' in s) this.added = s.added;
+        if ('active' in s) this.active = s.active;
+        if ('status' in s) this.status = s.status;
         return this;
     },
     reset: function() {
@@ -65,11 +65,11 @@ Source.prototype = {
         this.jobCheckpoint = null;
         this.stageCheckpoint = null;
         this.timeout = null;
-        this.active = true;
+        this.active = false;
         this.status = null;
         return this;
     },
-    errorStatus: function(err) {
+    updateStatus: function(err) {
         if (err) {
             logger.error(err.toString());
             this.status = err.toString();
@@ -78,19 +78,14 @@ Source.prototype = {
 }
 
 function Context() {
-    logger.info("Initialized with new context.")
     this.sources = {};
-    this.counter = 0;
-    this.loaded = false;
+    this.db = "context";
+    this.sourcesDB = "sources";
+    this.handlers = {};
 }
 
 Context.prototype = {
     constructor: Context,
-    getNewId: function() {
-        var id = this.counter;
-        this.counter += 1;
-        return id;
-    },
     getSources: function() {
         var res = [];
         for (host in context.sources) {
@@ -130,71 +125,86 @@ Context.prototype = {
         }
         return null;
     },
-    getOrCreateSource: function(host, user, passwd) {
-        var ns = null;
+    createSource: function(host, user, passwd, active) {
+        var ns = new Source(host, user, passwd, active);
         if (!(host in context.sources)) {
             context.sources[host] = {};
         }
-        if (user in context.sources[host]) {
-            ns = context.sources[host][user];
-            if (!ns.active) {
-                ns.reset();
-            }
-        } else {
-            ns = new Source(host, user, passwd);
+        if (!(user in context.sources[host])) {
             context.sources[host][user] = ns;
+            mongodb.getInstance(function(db) {
+                db.collection(context.sourcesDB).insertOne(ns.toString(true), { w: 1 }, function(err) {
+                    ns.updateStatus(err);
+                });
+            });
+            return ns;
         }
-        return ns;
+        return null;
     },
-    addOrUpdateSource: function(source) {
-        var host = source.host;
-        var user = source.user;
-        if (!(host in context.sources)) {
-            context.sources[host] = {};
-        }
-        context.sources[host][user] = new Source(null, null, null);
-        var res = context.sources[host][user].set(source);
-        return res;
+    updateSource: function(sourceId, updata) {
+        var s = this.getSourceById(sourceId);
+        if (!s) return;
+        s.set(updata);
+        mongodb.getInstance(function(db) {
+            db.collection(context.sourcesDB).updateOne({ id: s.id }, s.toString(true), { w: 1 }, function(err) {
+                s.updateStatus(err);
+            });
+        });
     },
-    enableSource: function(source) {
+    removeSource: function(sourceId) {
+        var source = this.getSourceById(sourceId);
         if (!source) return;
-        source.active = true;
-        context.dump();
+        delete context.sources[source.host][source.user];
+        mongodb.getInstance(function(db) {
+            db.collection(context.sourcesDB).deleteOne({ id: source.id }, { w: 1 }, function(err) {
+                source.updateStatus(err);
+            });
+        });
     },
-    disableSource: function(source) {
+    enableSource: function(sourceId) {
+        this.updateSource(sourceId, { active: true });
+    },
+    disableSource: function(sourceId) {
+        var source = this.getSourceById(sourceId);
         if (!source) return;
         if (source.timeout != null) {
             logger.info("Stopped monitoring service on source " + source.id);
             clearInterval(source.timeout);
         }
         source.reset();
-        source.active = false;
-        context.dump();
     },
-    register: function(hostname, user, pass) {
-        var host = utils.validateHost(hostname);
-        var ns = context.getOrCreateSource(host, user, pass);
-        if (ns.registers < 0) {
-            ns.registers = 0;
+    register: function(sourceId) {
+        var source = this.getSourceById(sourceId);
+        if (!source) return null;
+        if (source.registers < 0) {
+            source.registers = 0;
         }
-        ns.registers += 1;
-        context.dump();
-        return ns.toString(false);
+        source.registers += 1;
+        return source;
     },
-    unregister: function(hostname, user) {
-        var host = utils.validateHost(hostname);
-        var sources = context.sources;
-        if (host in sources && user in sources[host] && sources[host][user].active) {
-            sources[host][user].registers -= 1;
-            return sources[host][user].toString(false);
-        };
+    unregister: function(sourceId) {
+        var source = this.getSourceById(sourceId);
+        if (source && source.active) {
+            source.registers -= 0;
+            return source;
+        }
         return null;
     },
     load: function(callback) {
         mongodb.getInstance(function(db) {
-            db.collection("context").findOne({}, function(err, c) {
+            db.collection(context.sourcesDB).find().toArray(function(err, docs) {
                 if (!err) {
-                    loadContextToLive(c);
+                    for (var i = 0; i < docs.length; i++) {
+                        var source = docs[i];
+                        var host = source.host;
+                        var user = source.user;
+                        if (!(host in context.sources)) {
+                            context.sources[host] = {};
+                        }
+                        context.sources[host][user] = new Source(null, null, null);
+                        context.sources[host][user].set(source).reset();
+                    }
+                    logger.info("System context configurations loaded.");
                     callback();
                 } else {
                     logger.error(err.toString());
@@ -202,45 +212,7 @@ Context.prototype = {
             });
         });
     },
-    dump: function() {
-        if (!context.loaded)
-            return;
-        mongodb.getInstance(function(db) {
-            db.collection("context").updateOne({_id: context._id}, prepareContextToDump(), { upsert: true }, function(err) {
-                if (err) {
-                    logger.error(err.toString());
-                }
-            });
-        });
-    }
-}
-
-function loadContextToLive(ctx) {
-    if (ctx != null) {
-        for (var i = 0; i < ctx.sources.length; i++) {
-            context.addOrUpdateSource(ctx.sources[i]);
-        }
-        logger.info("System context configurations loaded.");
-    } else {
-        logger.info("Use new context configurations.")
-    }
-    context.loaded = true;
-}
-
-function prepareContextToDump() {
-    var D = {};
-    for (key in context) {
-        if (key == 'sources') {
-            var sources = context.getSources();
-            D[key] = [];
-            for (i = 0; i < sources.length; i++) {
-                D[key].push(sources[i].toString(true));
-            }
-        } else {
-            D[key] = context[key]
-        }
-    }
-    return D;
+    dump: function() {}
 }
 
 /**
@@ -255,7 +227,6 @@ function start() {
 
 function doScheduler() {
     var sources = context.sources;
-    // activate new source added by user
     for (host in sources) {
         for (user in sources[host]) {
             var s = sources[host][user];
@@ -278,12 +249,11 @@ function stop() {
     for (host in sources) {
         for (user in sources[host]) {
             var s = sources[host][user];
-            s.active = false;
             if (s.timeout != null) {
                 logger.info("Stopped monitor service on " + host);
                 clearInterval(s.timeout);
-                s.timeout = null;
             }
+            s.reset();
         }
     }
     if (scheduler != null) {
@@ -293,10 +263,16 @@ function stop() {
     logger.info("The inceptor service has been terminated. (What a nice day!)");
 }
 
+logger.info("Initialized with new context.")
 var context = new Context();
 var inceptor = {
     getSources: context.getSources,
+    getSourcesByHost: context.getSourcesByHost,
+    getSource: context.getSource,
     getSourceById: context.getSourceById,
+    createSource: context.createSource,
+    updateSource: context.updateSource,
+    removeSource: context.removeSource,
     enableSource: context.enableSource,
     disableSource: context.disableSource,
     register: context.register,

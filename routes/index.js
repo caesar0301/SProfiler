@@ -37,50 +37,46 @@ router.get('/sources/json', function(req, res) {
  */
 router.post('/source', function(req, res) {
     var host = req.body.host;
-    var action = req.body.action.toString().toLowerCase();
-    var user = req.body.username ? req.body.username : config.defaultUser;
+    var user = req.body.username;
+    if (!user) {
+        res.status(500).json({ "error": "Invalid username " + user });
+    }
     var pass = req.body.password ? req.body.password : config.defaultPass;
-    console.log(req.body)
-    if (action == 'unregister') {
-        inceptor.unregister(host, user);
-        res.status(200).end();
-    } else if (action == 'register') {
-        var s = inceptor.register(host, user, pass);
-        res.status(200).json(s);
+    var active = req.body.active == true ? true : false;
+    var s = inceptor.createSource(host, user, pass, active);
+    if (s == null) {
+        res.status(500).json({"error": "duplicated"});
     } else {
-        res.status(500)
-            .json({ "error": "unsupported action " + req.body.action });
+        res.status(200).json(s.toString(false));
     }
 });
 
 function parseSourceId(req, field) {
     var sourceId = req.params[field];
-    return inceptor.getSourceById(parseInt(sourceId))
+    return inceptor.getSourceById(sourceId);
 }
 
-function retrieveJobs(collection, checkpoint, limit, callback) {
-    var checkpoint = isNaN(checkpoint) ? 0 : checkpoint;
-    var limit = isNaN(limit) ? 100 : limit;
-    var query = {
-        $or: [{
-            completionTime: { $gte: checkpoint },
-        }, {
-            completionTime: null,
-        }]
-    };
-    var option = {
-        _id: false,
-        limit: limit,
-        sort: [
-            ['submissionTime', -1]
-        ],
-    };
-    mongodb.getInstance(function(db) {
-        db.collection(collection).find(query, option).toArray(function(err, docs) {
-            callback(err, docs);
-        });
-    });
-}
+router.get('/source/:sourceId/delete', function(req, res) {
+    var source = parseSourceId(req, 'sourceId');
+    if (source == null) {
+        res.status(500).json({ "error": "There is no source " + req.params['sourceId'] });
+    } else {
+        inceptor.removeSource(source.id);
+        res.status(200).json({"result": "success"});
+    }
+});
+
+router.post('/source/:sourceId/update', function(req, res) {
+    var source = parseSourceId(req, 'sourceId');
+    if (source == null) {
+        res.status(500).json({ "error": "There is no source " + req.params['sourceId'] });
+    } else if (Object.keys(req.body).length > 0) {
+        inceptor.updateSource(source.id, req.body);
+        res.status(200).json({"result": "success"});
+    } else {
+        res.status(500).json({"error": "empty body data."});
+    }
+});
 
 /**
  * Get the configuration of one source, given source id.
@@ -106,6 +102,30 @@ router.get('/source/:sourceId/jobs', function(req, res) {
         res.status(200).json(jobs);
     });
 });
+
+function retrieveJobs(collection, checkpoint, limit, callback) {
+    var checkpoint = isNaN(checkpoint) ? 0 : checkpoint;
+    var limit = isNaN(limit) ? 100 : limit;
+    var query = {
+        $or: [{
+            completionTime: { $gte: checkpoint },
+        }, {
+            completionTime: null,
+        }]
+    };
+    var option = {
+        _id: false,
+        limit: limit,
+        sort: [
+            ['submissionTime', -1]
+        ],
+    };
+    mongodb.getInstance(function(db) {
+        db.collection(collection).find(query, option).toArray(function(err, docs) {
+            callback(err, docs);
+        });
+    });
+}
 
 router.get('/source/:sourceId/timeline', function(req, res) {
     var source = parseSourceId(req, 'sourceId');
@@ -147,7 +167,7 @@ router.get('/source/:sourceId/start', function(req, res) {
         res.status(500).json({ "error": "There is no source " + req.params['sourceId'] });
         return;
     }
-    inceptor.enableSource(source);
+    inceptor.enableSource(source.id);
     res.redirect('/sources');
 });
 
@@ -157,7 +177,7 @@ router.get('/source/:sourceId/stop', function(req, res) {
         res.status(500).json({ "error": "There is no source " + req.params['sourceId'] });
         return;
     }
-    inceptor.disableSource(source);
+    inceptor.disableSource(source.id);
     res.redirect('/sources');
 });
 

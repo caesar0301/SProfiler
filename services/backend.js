@@ -20,7 +20,7 @@ function trigger(source) {
             fetchStages(source);
         }
     } catch (err) {
-        source.errorStatus(err);
+        source.updateStatus(err);
     }
 }
 
@@ -41,15 +41,15 @@ function fetchJobs(source) {
     request(api, function(err, response, body) {
         jobLastRequestFinished = true;
         if (err) {
-            source.errorStatus(err);
+            source.updateStatus(err);
         } else if (response.statusCode == 401) {
-            source.errorStatus('Unauthorized!');
+            source.updateStatus('Unauthorized!');
         } else if (response.statusCode == 200) {
             var jobs = {};
             try {
                 jobs = JSON.parse(body);
             } catch (err) {
-                source.errorStatus(err);
+                source.updateStatus(err);
                 return;
             }
 
@@ -110,15 +110,15 @@ function fetchStages(source) {
     request(api, function(err, response, body) {
         stageLastRequestFinished = true;
         if (err) {
-            source.errorStatus(err);
+            source.updateStatus(err);
         } else if (response.statusCode == 401) {
-            source.errorStatus('Unauthorized!');
+            source.updateStatus('Unauthorized!');
         } else if (response.statusCode == 200) {
             var stages = {};
             try {
                 stages = JSON.parse(body);
             } catch (err) {
-                source.errorStatus(err);
+                source.updateStatus(err);
                 return;
             }
 
