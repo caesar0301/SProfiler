@@ -206,7 +206,7 @@ Context.prototype = {
         if (!context.loaded)
             return;
         mongodb.getInstance(function(db) {
-            db.collection("context").updateOne({}, prepareContextToDump(), { upsert: true }, function(err) {
+            db.collection("context").updateOne({_id: context._id}, prepareContextToDump(), { upsert: true }, function(err) {
                 if (err) {
                     logger.error(err.toString());
                 }
@@ -228,10 +228,14 @@ function loadContextToLive(ctx) {
 }
 
 function prepareContextToDump() {
-    D = {};
+    var D = {};
     for (key in context) {
         if (key == 'sources') {
-            D[key] = context.getSources();
+            var sources = context.getSources();
+            D[key] = [];
+            for (i = 0; i < sources.length; i++) {
+                D[key].push(sources[i].toString(true));
+            }
         } else {
             D[key] = context[key]
         }

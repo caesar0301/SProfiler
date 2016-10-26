@@ -4,17 +4,15 @@ var logger = require('../common/logger');
 
 var url = config.dbserver + "/" + config.dbname;
 var p_db;
-
+var initialized = false;
+var daemon = null;
 var options = {
     db: {
-        numberOfRetries: 5
+        numberOfRetries: 3,
     },
     server: {
         auto_reconnect: true,
         poolSize: 50,
-        socketOptions: {
-            connectTimeoutMS: 500
-        }
     },
     replSet: {},
     mongos: {}
@@ -23,11 +21,18 @@ var options = {
 function initialize(callback) {
     mongo.connect(url, options, function(err, db) {
         if (err) throw err;
-        p_db = db;
         logger.info("MongoDB pool initialized.")
+        p_db = db;
+        initialized = true;
         if (callback && typeof(callback) == 'function')
             callback(p_db);
     });
+    daemon = setInterval(doDaemon, 1000);
+}
+
+function doDaemon() {
+    if (initialized) {
+    }
 }
 
 function getInstance(callback) {
@@ -48,5 +53,4 @@ function close() {
 module.exports = {
     initialize: initialize,
     getInstance: getInstance,
-    close: close,
 };

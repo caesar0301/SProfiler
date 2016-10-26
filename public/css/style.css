@@ -1,5 +1,5 @@
 /**
- * main framework
+ * main
  */
 
 .main-body {
@@ -20,18 +20,36 @@
   overflow: hidden;
 }
 
+.box {
+  background: rgba(0, 0, 0, 0.61);
+  padding: 10px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  display: none;
+}
+
+.boxHeader {
+  font-size: 2em;
+}
+
+.mainMenu {
+  position: absolute;
+  bottom: 30px;
+  right: 50px;
+}
 
 /**
  * Table
  */
-span.status-STOP {
+
+.status-STOP {
   border: 1px solid #d9534f;
   padding: 1px 5px 0;
   background: #d9534f;
   color: #fff
 }
 
-span.status-RUNNING {
+.status-RUNNING {
   border: 1px solid #EBBA16;
   padding: 1px 5px 0;
   background: #EBBA16;

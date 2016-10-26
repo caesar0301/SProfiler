@@ -4,17 +4,17 @@
 <head>
   <title>Inceptor Scheduler Profiler</title>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  <script src="javascripts/vis.min.js"></script>
-  <script src="javascripts/jquery.min.js"></script>
-  <script src="javascripts/bootstrap.min.js"></script>
-  <script src="javascripts/js.cookie.js"></script>
-  <script src="javascripts/jquery.toastmessage.js"></script>
-  <script src="javascripts/timeline-x.js"></script>
-  <link href="stylesheets/vis.min.css" rel="stylesheet" type="text/css" />
-  <link href="stylesheets/bootstrap.min.css" rel="stylesheet" type="text/css" />
-  <link href="stylesheets/bootstrap-theme.min.css" rel="stylesheet" type="text/css" />
-  <link href="stylesheets/jquery.toastmessage.css" rel="stylesheet" type="text/css" />
-  <link href="stylesheets/style.css" rel="stylesheet" type="text/css" />
+  <script src="js/vis.min.js"></script>
+  <script src="js/jquery.min.js"></script>
+  <script src="js/bootstrap.min.js"></script>
+  <script src="js/js.cookie.js"></script>
+  <script src="js/jquery.toastmessage.js"></script>
+  <script src="js/timeline-x.js"></script>
+  <link href="css/vis.min.css" rel="stylesheet" type="text/css" />
+  <link href="css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+  <link href="css/bootstrap-theme.min.css" rel="stylesheet" type="text/css" />
+  <link href="css/jquery.toastmessage.css" rel="stylesheet" type="text/css" />
+  <link href="css/style.css" rel="stylesheet" type="text/css" />
 </head>
 
 <body class="main-body">
@@ -153,6 +153,10 @@
     <main id="mainscreen">
       <div>
         <div id="visualization" style="height: 600px"></div>
+        <div class="mainMenu" style="display: block;">
+          <div class="boxHeader"><span class="glyphicon glyphicon-menu-hamburger"></span></div>
+        </div>
+        <!-- timeline -->
         <script type="text/javascript">
         // Timeline
         var height = ($(document).height() - $("#headbar").outerHeight()) + 'px';
@@ -174,6 +178,9 @@
           gonow.setBusy();
           console.log('liveData = ' + liveData)
         };
+        </script>
+        <!-- ui -->
+        <script>
         </script>
       </div>
     </main>

@@ -89,8 +89,7 @@ function fetchJobs(source) {
                     };
                 });
             };
-
-            debug("checkpoint: " + dateformat(source.jobCheckpoint, df));
+            // debug("checkpoint: " + dateformat(source.jobCheckpoint, df));
         }
     }).auth(source.user, source.passwd, false);
 }
@@ -105,7 +104,7 @@ function fetchStages(source) {
     if (source.stageCheckpoint != null) {
         after = source.stageCheckpoint.getTime() + 1 + "L"; // offset 1ms
     }
-    var api = source.host + "/api/stages?userId=" + source.user + "&details=true&afterTime=" + after;
+    var api = source.host + "/api/stages?details=true&userId=" + source.user + "&afterTime=" + after;
     debug(api);
     stageLastRequestFinished = false;
     request(api, function(err, response, body) {
@@ -159,8 +158,7 @@ function fetchStages(source) {
                     };
                 });
             };
-
-            debug("checkpoint: " + dateformat(source.stageCheckpoint, df));
+            // debug("checkpoint: " + dateformat(source.stageCheckpoint, df));
         }
     }).auth(source.user, source.passwd, false);
 }
