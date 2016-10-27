@@ -7,19 +7,22 @@
   <script src="js/vis.min.js"></script>
   <script src="js/jquery.min.js"></script>
   <script src="js/bootstrap.min.js"></script>
+  <script src="js/bootstrap-table.min.js"></script>
   <script src="js/js.cookie.js"></script>
   <script src="js/jquery.toastmessage.js"></script>
   <script src="js/timeline-x.js"></script>
+  <script src="js/main.js"></script>
   <link href="css/vis.min.css" rel="stylesheet" type="text/css" />
   <link href="css/bootstrap.min.css" rel="stylesheet" type="text/css" />
   <link href="css/bootstrap-theme.min.css" rel="stylesheet" type="text/css" />
+  <link href="css/bootstrap-table.min.css" rel="stylesheet" type="text/css" />
   <link href="css/jquery.toastmessage.css" rel="stylesheet" type="text/css" />
   <link href="css/style.css" rel="stylesheet" type="text/css" />
 </head>
 
 <body class="main-body">
   <div id="wrapScreen" class="wrap-screen">
-    <header id="headbar">
+    <div id="headbar">
       <nav class="navbar navbar-inverse">
         <div class="container-fluid">
           <!-- Brand and toggle get grouped for better mobile display -->
@@ -32,16 +35,6 @@
           </div>
           <!-- Collect the nav links, forms, and other content for toggling -->
           <div class="collapse navbar-collapse" id="nav153bar-collapse-1">
-            <form class="navbar-form navbar-left" role="form" id="sourceForm">
-              <div class="input-group">
-                <input id="sourcehost" type="text" class="form-control" style="width:200px" placeholder="hostname:4040">
-                <input id="username" type="text" class="form-control" style="width:100px" placeholder="username">
-                <input id="password" type="password" class="form-control" style="width:100px" placeholder="password">
-                <span class="input-group-btn">
-                    <button class="btn btn-success" style="width:65px" type="button" id="gonow">Go!</button>
-                </span>
-              </div>
-            </form>
             <div class="container-fluid">
               <ul class="nav navbar-nav navbar-right">
                 <li>
@@ -56,135 +49,31 @@
         </div>
         <!-- /.container-fluid -->
       </nav>
-      <script>
-      $("#sourceForm").bind('keypress', function(e) {
-        var code = e.keyCode || e.which;
-        if (code == 13) { //Enter keycode
-          $("#gonow").click()
-        }
-      });
-
-      var sourceForm = {
-        setBusy: function() {
-          var source = getCookie("activeSource");
-          $("#sourcehost").prop("readonly", "readonly").prop("value", source.host);
-          $("#username").prop("readonly", "readonly").prop("value", source.user);
-          $("#password").prop("readonly", "readonly").prop("value", '******');
-        },
-        setIdle: function() {
-          $("#sourcehost").prop("readonly", "");
-          $("#username").prop("readonly", "");
-          $("#password").prop("readonly", "");
-        },
-        getValues: function() {
-          var host = $("#sourcehost").val();
-          var user = $("#username").val();
-          var pass = $("#password").val();
-          if (host.length == 0 || host == null) {
-            $().toastmessage('showErrorToast', 'Feed me a valid site address, plz (e.g., 10.0.0.10.4040)');
-            return;
-          }
-          if (user.length == 0 || user == null) {
-            user = "hive";
-            $().toastmessage('showWarningToast', 'Use default user [hive].');
-          }
-          if (pass.length == 0 || pass == null) {
-            $().toastmessage('showWarningToast', 'Empty password.');
-          }
-          return {
-            host: host,
-            user: user,
-            pass: pass
-          }
-        }
-      }
-
-      // GoNow button
-      var gonow = {
-        setBusy: function() {
-          // change to running state
-          $("#gonow").removeClass("btn-success").addClass("btn-danger").text("Stop");
-          sourceForm.setBusy();
-          setCookie("gonowClicked", "true");
-          liveData = true;
-        },
-        setIdle: function() {
-          // change to idle state
-          $("#gonow").removeClass("btn-danger").addClass("btn-success").text("Go!");
-          sourceForm.setIdle();
-          setCookie("gonowClicked", "false");
-          liveData = false;
-          setCookie("activeSource", null);
-        },
-        isBusy: function() {
-          return getCookie('gonowClicked');
-        }
-      };
-
-      // GoNow button
-      $("#gonow").click(function() {
-        var sform = sourceForm.getValues();
-        var dataForm = {
-          host: sform.host,
-          action: gonow.isBusy() ? 'unregister' : 'register',
-          username: sform.user,
-          password: sform.pass,
-        };
-
-        $.post('/source', dataForm, "application/json")
-          .done(function(rsp) {
-            setCookie("activeSource", rsp)
-              // change button status
-            if ($("#gonow").hasClass('btn-success')) {
-              gonow.setBusy();
-              $().toastmessage('showNoticeToast', 'Start listening on ' + sform.host);
-            } else {
-              gonow.setIdle();
-              $().toastmessage('showNoticeToast', 'Stop listening on ' + sform.host);
-            }
-            // window.location.reload() //forcedly
-          })
-          .fail(function(err) {
-            $().toastmessage('showErrorToast', "Bad request.");
-          });
-      });
-      </script>
-    </header>
-    <main id="mainscreen">
+    </div>
+    <div id="mainscreen">
       <div>
         <div id="visualization" style="height: 600px"></div>
         <div class="mainMenu" style="display: block;">
           <div class="boxHeader"><span class="glyphicon glyphicon-menu-hamburger"></span></div>
         </div>
-        <!-- timeline -->
-        <script type="text/javascript">
-        // Timeline
-        var height = ($(document).height() - $("#headbar").outerHeight()) + 'px';
-        var timeline = createTimeline("visualization", height);
-        timeline.setGroups(visGroups);
-        timeline.setItems(visItems);
-        timeline.moveTo(timeline.getCurrentTime());
-        timeline.on("currentTimeTick", onCurrentTimeTick);
-        timeline.on("rangechanged", function(props) {
-          liveView = !props.byUser;
-        });
-        timeline.on("doubleClick", function(props) {
-          liveView = true;
-        });
-        </script>
-        <script>
-        // recover state on refresh
-        if (gonow.isBusy()) {
-          gonow.setBusy();
-          console.log('liveData = ' + liveData)
-        };
-        </script>
-        <!-- ui -->
-        <script>
-        </script>
       </div>
-    </main>
+    </div>
   </div>
 </body>
+<!-- timeline -->
+<script type="text/javascript">
+var height = ($(document).height() - $("#headbar").outerHeight()) + 'px';
+var timeline = createTimeline("visualization", height);
+timeline.setGroups(visGroups);
+timeline.setItems(visItems);
+timeline.moveTo(timeline.getCurrentTime());
+timeline.on("currentTimeTick", onCurrentTimeTick);
+timeline.on("rangechanged", function(props) {
+  liveView = !props.byUser;
+});
+timeline.on("doubleClick", function(props) {
+  liveView = true;
+});
+</script>
 
 </html>
