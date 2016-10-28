@@ -8,8 +8,6 @@ var previous = 0;
 var checkpoint = null;
 var activeSource = null;
 var previousSource = null;
-var updateDataLastFinished = true;
-var updateStatLastFinished = true;
 
 function createTimeline(container, height) {
     // DOM element where the Timeline will be attached
@@ -61,26 +59,19 @@ function onCurrentTimeTick(props) {
             });
         };
         if (liveData) {
-            if (updateDataLastFinished) {
-                updateDataItems(updateMaxNum);
-            }
-            if (updateStatLastFinished) {
-                updateJobStat();
-            }
+            updateDataItems(updateMaxNum);
+            updateJobStat();
         }
         previous = current;
     };
 }
 
 function updateDataItems(max) {
-    if (!activeSource) return;
     var prefix = "/source/" + activeSource;
     var url = prefix + "/timeline?limit=" + max + "&c=" + (checkpoint ? checkpoint : 0);
     console.log(url)
-    updateDataLastFinished = false;
     $.get(url, function(res, status, xhr) {
         console.log(status)
-        updateDataLastFinished = true;
         // console.log("checkpoint: " + checkpoint + " items: " + res.items.length)
         for (var i = 0; i < res.items.length; i++) {
             var item = res.items[i]
@@ -134,9 +125,7 @@ function updateJobStat() {
     if (!activeSource) return;
     var prefix = "/source/" + activeSource;
     var url = prefix + "/stats";
-    updateStatLastFinished = false;
     $.get(url, function(rsp, status, xhr) {
-        updateStatLastFinished = true;
         var stats = rsp.stats;
         $("#statJobs").text(stats.numJobs);
         $("#statStages").text(stats.numStages);

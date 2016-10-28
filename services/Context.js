@@ -1,7 +1,7 @@
-var mongodb = require('../services/mongodb');
 var config = require('../common/config');
 var logger = require('../common/logger');
 var Source = require('./Source');
+var mongodb = require('./mongodb');
 
 function Context() {
     this.sources = {};

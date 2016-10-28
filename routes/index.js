@@ -90,34 +90,6 @@ router.get('/source/:sourceId', function(req, res) {
     }
 });
 
-function retrieveJobs(collection, checkpoint, limit, callback) {
-    var checkpoint = isNaN(checkpoint) ? 0 : checkpoint;
-    var limit = isNaN(limit) ? 100 : limit;
-    var query = {
-        $or: [{
-            completionTime: { $gte: checkpoint },
-        }, {
-            completionTime: null,
-        }]
-    };
-    var option = {
-        _id: false,
-        limit: limit,
-        sort: [
-            ['submissionTime', -1]
-        ],
-    };
-    mongo.connect(config.dbserver + "/" + config.dbname, function(err, db) {
-        if (err) {
-            logger.error(err.toString());
-            return;
-        }
-        db.collection(collection).find(query, option).toArray(function(err, docs) {
-            callback(err, docs);
-        });
-    });
-}
-
 router.get('/source/:sourceId/jobs', function(req, res) {
     var source = parseSourceId(req, 'sourceId');
     if (source == null) {
@@ -126,7 +98,7 @@ router.get('/source/:sourceId/jobs', function(req, res) {
     }
     var checkpoint = parseInt(req.query['c']);
     var limit = parseInt(req.query['limit']);
-    retrieveJobs(source.jobDBName, checkpoint, limit, function(err, jobs) {
+    source.retrieveJobs(checkpoint, limit, function(jobs) {
         res.status(200).json(jobs);
     });
 });
@@ -139,7 +111,7 @@ router.get('/source/:sourceId/timeline', function(req, res) {
     }
     var checkpoint = parseInt(req.query['c']);
     var limit = parseInt(req.query['limit']);
-    retrieveJobs(source.jobDBName, checkpoint, limit, function(err, jobs) {
+    source.retrieveJobs(checkpoint, limit, function(jobs) {
         var result = utils.convertJobsToTimeline(source.id, jobs);
         // console.log(result.items)
         res.status(200).json(result);

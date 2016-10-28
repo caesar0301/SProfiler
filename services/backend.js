@@ -1,6 +1,6 @@
 var request = require('request');
 var dateformat = require('dateformat');
-var mongodb = require('../services/mongodb');
+var mongodb = require('./mongodb');
 var config = require('../common/config');
 var logger = require('../common/logger');
 
@@ -36,7 +36,6 @@ function fetchJobs(source) {
         after = source.jobCheckpoint.getTime() + 1 + "L"; // offset 1ms
     }
     var api = source.host + "/api/jobs?userId=" + source.user + "&afterTime=" + after;
-    debug(api);
     jobLastRequestFinished = false;
     request(api, function(err, response, body) {
         jobLastRequestFinished = true;
@@ -53,7 +52,8 @@ function fetchJobs(source) {
                 return;
             }
 
-            debug(jobs.length + " jobs fetched (" + source.user + ")");
+            debug(jobs.length + " jobs fetched (" + source.user + ") " +
+                "[" + source.host + ", " + source.user + ", " + after + "]" );
 
             // process jobs data
             var updateBatch = [];
@@ -95,7 +95,6 @@ function fetchStages(source) {
         after = source.stageCheckpoint.getTime() + 1 + "L"; // offset 1ms
     }
     var api = source.host + "/api/stages?details=true&userId=" + source.user + "&afterTime=" + after;
-    debug(api);
     stageLastRequestFinished = false;
     request(api, function(err, response, body) {
         stageLastRequestFinished = true;
@@ -112,7 +111,8 @@ function fetchStages(source) {
                 return;
             }
 
-            debug(stages.length + " stages fetched (" + source.user + ")");
+            debug(stages.length + " stages fetched (" + source.user + ") " +
+                "[" + source.host + ", " + source.user + ", " + after + "]" );
 
             // process stages data
             var updateBatch = [];
