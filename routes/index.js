@@ -22,7 +22,7 @@ router.get('/sources', function(req, res, next) {
 });
 
 router.get('/sources/json', function(req, res) {
-    var sources = inceptor.getSources();
+    var sources = inceptor.context.getSources();
     var srcstr = [];
     for (var i = 0; i < sources.length; i++) {
         srcstr.push(sources[i].toString(false));
@@ -43,7 +43,7 @@ router.post('/source', function(req, res) {
     }
     var pass = req.body.password ? req.body.password : config.defaultPass;
     var active = req.body.active == true ? true : false;
-    var s = inceptor.createSource(host, user, pass, active);
+    var s = inceptor.context.createSource(host, user, pass, active);
     if (s == null) {
         res.status(500).json({ "error": "duplicated" });
     } else {
@@ -53,7 +53,7 @@ router.post('/source', function(req, res) {
 
 function parseSourceId(req, field) {
     var sourceId = req.params[field];
-    return inceptor.getSourceById(sourceId);
+    return inceptor.context.getSourceById(sourceId);
 }
 
 router.get('/source/:sourceId/delete', function(req, res) {
@@ -61,7 +61,7 @@ router.get('/source/:sourceId/delete', function(req, res) {
     if (source == null) {
         res.status(500).json({ "error": "There is no source " + req.params['sourceId'] });
     } else {
-        inceptor.removeSource(source.id);
+        inceptor.context.removeSource(source.id);
         res.status(200).json({ "result": "success" });
     }
 });
@@ -71,7 +71,7 @@ router.post('/source/:sourceId/update', function(req, res) {
     if (source == null) {
         res.status(500).json({ "error": "There is no source " + req.params['sourceId'] });
     } else if (Object.keys(req.body).length > 0) {
-        inceptor.updateSource(source.id, req.body);
+        inceptor.context.updateSource(source.id, req.body);
         res.status(200).json({ "result": "success" });
     } else {
         res.status(500).json({ "error": "empty body data." });
@@ -88,19 +88,6 @@ router.get('/source/:sourceId', function(req, res) {
     } else {
         res.json(source.toString(false));
     }
-});
-
-router.get('/source/:sourceId/jobs', function(req, res) {
-    var source = parseSourceId(req, 'sourceId');
-    if (source == null) {
-        res.status(500).json({ "error": "There is no source " + req.params['sourceId'] });
-        return;
-    }
-    var checkpoint = parseInt(req.query['c']);
-    var limit = parseInt(req.query['limit']);
-    retrieveJobs(source.jobs, checkpoint, limit, function(err, jobs) {
-        res.status(200).json(jobs);
-    });
 });
 
 function retrieveJobs(collection, checkpoint, limit, callback) {
@@ -131,6 +118,19 @@ function retrieveJobs(collection, checkpoint, limit, callback) {
     });
 }
 
+router.get('/source/:sourceId/jobs', function(req, res) {
+    var source = parseSourceId(req, 'sourceId');
+    if (source == null) {
+        res.status(500).json({ "error": "There is no source " + req.params['sourceId'] });
+        return;
+    }
+    var checkpoint = parseInt(req.query['c']);
+    var limit = parseInt(req.query['limit']);
+    retrieveJobs(source.jobDBName, checkpoint, limit, function(err, jobs) {
+        res.status(200).json(jobs);
+    });
+});
+
 router.get('/source/:sourceId/timeline', function(req, res) {
     var source = parseSourceId(req, 'sourceId');
     if (source == null) {
@@ -139,7 +139,7 @@ router.get('/source/:sourceId/timeline', function(req, res) {
     }
     var checkpoint = parseInt(req.query['c']);
     var limit = parseInt(req.query['limit']);
-    retrieveJobs(source.jobs, checkpoint, limit, function(err, jobs) {
+    retrieveJobs(source.jobDBName, checkpoint, limit, function(err, jobs) {
         var result = utils.convertJobsToTimeline(source.id, jobs);
         // console.log(result.items)
         res.status(200).json(result);
@@ -158,8 +158,8 @@ router.get('/source/:sourceId/stats', function(req, res) {
             logger.error(err.toString());
             return;
         }
-        db.collection(source.jobs).count(function(err, numJobs) {
-            db.collection(source.stages).count(function(err, numStages) {
+        db.collection(source.jobDBName).count(function(err, numJobs) {
+            db.collection(source.stageDBName).count(function(err, numStages) {
                 res.status(200).json({
                     stats: {
                         numJobs: numJobs,
@@ -177,7 +177,7 @@ router.get('/source/:sourceId/start', function(req, res) {
         res.status(500).json({ "error": "There is no source " + req.params['sourceId'] });
         return;
     }
-    inceptor.enableSource(source.id);
+    inceptor.context.enableSource(source.id);
     res.redirect('/sources');
 });
 
@@ -187,7 +187,7 @@ router.get('/source/:sourceId/stop', function(req, res) {
         res.status(500).json({ "error": "There is no source " + req.params['sourceId'] });
         return;
     }
-    inceptor.disableSource(source.id);
+    inceptor.context.disableSource(source.id);
     res.redirect('/sources');
 });
 

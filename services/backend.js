@@ -30,7 +30,7 @@ function trigger(source) {
  */
 function fetchJobs(source) {
     var after = "-1";
-    var cname = source.jobs;
+    var cname = source.jobDBName;
     var debug = function(msg) { logger.debug("[J] " + msg) }
     if (source.jobCheckpoint != null) {
         after = source.jobCheckpoint.getTime() + 1 + "L"; // offset 1ms
@@ -76,19 +76,9 @@ function fetchJobs(source) {
                 updateCheckpoint(stime);
                 updateCheckpoint(dtime);
             }
-
-            // perform entry-wise upsert
             if (updateBatch.length > 0) {
-                var total = updateBatch.length;
-                mongodb.getInstance(function(db) {
-                    var col = db.collection(source.jobs);
-                    for (var i = 0; i < updateBatch.length; i++) {
-                        var job = updateBatch[i];
-                        debug("Upsert job of #" + job.jobId + " (" + job.status + ")");
-                        col.updateOne({ globalId: job.globalId }, job, { upsert: true, w: 1 });
-                    };
-                });
-            };
+                source.upsertJobs(updateBatch);
+            }
             // debug("checkpoint: " + dateformat(source.jobCheckpoint, df));
         }
     }).auth(source.user, source.passwd, false);
@@ -99,7 +89,7 @@ function fetchJobs(source) {
  */
 function fetchStages(source) {
     var after = "-1";
-    var cname = source.stages;
+    var cname = source.stageDBName;
     var debug = function(msg) { logger.debug("[S] " + msg) }
     if (source.stageCheckpoint != null) {
         after = source.stageCheckpoint.getTime() + 1 + "L"; // offset 1ms
@@ -145,18 +135,8 @@ function fetchStages(source) {
                 updateCheckpoint(stime);
                 updateCheckpoint(dtime);
             }
-
-            // perform entry-wise upsert
             if (updateBatch.length > 0) {
-                var total = updateBatch.length;
-                mongodb.getInstance(function(db) {
-                    var col = db.collection(source.stages);
-                    for (var i = 0; i < updateBatch.length; i++) {
-                        var stage = updateBatch[i];
-                        debug("Upsert stage of #" + stage.stageId + " (" + stage.status + ")");
-                        col.updateOne({ globalId: stage.globalId }, stage, { upsert: true, w: 1 });
-                    };
-                });
+                source.upsertStages(updateBatch);
             };
             // debug("checkpoint: " + dateformat(source.stageCheckpoint, df));
         }
