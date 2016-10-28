@@ -51,22 +51,86 @@
       </nav>
     </div>
     <div id="mainscreen">
+      <div id="visualization" style="height: 600px"></div>
       <div>
-        <div id="visualization" style="height: 600px"></div>
-        <div class="mainMenu" style="display: block;">
-          <div class="boxHeader"><span class="glyphicon glyphicon-menu-hamburger"></span></div>
+        <div class="menu-button" style="display: block;" id="menuButton">
+          <div class="box-header"><span class="glyphicon glyphicon-menu-hamburger" type="button"></span></div>
+        </div>
+        <div class="menu-panel box hidden" style="display: block;" id="menuPanel">
+          <div class="box-header-white" style="color: white;"><span class="glyphicon glyphicon-dashboard"></span> Live Sources</div>
+          <div class="box-body">
+            <table id="liveSources" data-toggle="table" data-show-header="false" data-classes="table table-no-bordered">
+              <thead>
+                <tr>
+                  <th data-field="host">Host</th>
+                  <th data-field="user">User</th>
+                  <th data-field="view">Go</th>
+                </tr>
+              </thead>
+            </table>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </body>
+<!-- menu panel -->
+<script>
+var $button = $('#menuButton');
+var $panel = $('#menuPanel');
+var $table = $('#liveSources');
+var sources = [];
+
+$button.click(function() {
+  $panel.toggleClass('hidden');
+  if (!$panel.hasClass('hidden')) {
+    createPanelTable();
+  }
+});
+
+// create table
+function createPanelTable() {
+  $.getJSON("sources/json", function(data) {
+    sources = $.map(data, function(src, key) {
+      var status = src.active ? 'glyphicon-play' : 'glyphicon-stop'
+      return {
+        id: src.id,
+        host: '<span class="glyphicon '+ status +'"><span><a style="margin-left: 5px" href=' + src.host + '>' + src.host + '</a>',
+        user: src.user.toUpperCase(),
+        view: '<div class="source-link text-center" id="' + src.id + '"><span class="glyphicon glyphicon-transfer"></span></div>',
+      };
+    });
+    $table.bootstrapTable('load', sources);
+  });
+}
+
+$('.box').on('click', '.source-link', function() {
+  var isBusy = activeSource && activeSource != 'null';
+  if (isBusy && activeSource != this.id) {
+    $().toastmessage('showErrorToast', 'Another source has been attached.');
+    return;
+  }
+  if (isBusy) {
+    $().toastmessage('showNoticeToast', 'Dettach from source ' + this.id);
+    previousSource = activeSource;
+    Cookies.remove("activeSource");
+    activeSource = null;
+    liveData = false;
+  } else {
+    $().toastmessage('showNoticeToast', 'Attach on source ' + this.id);
+    Cookies.set("activeSource", this.id);
+    activeSource = this.id;
+    liveData = true;
+  }
+  $(this).toggleClass('source-link-busy');
+});
+</script>
 <!-- timeline -->
-<script type="text/javascript">
+<script>
 var height = ($(document).height() - $("#headbar").outerHeight()) + 'px';
-var timeline = createTimeline("visualization", height);
+timeline = createTimeline("visualization", height);
 timeline.setGroups(visGroups);
 timeline.setItems(visItems);
-timeline.moveTo(timeline.getCurrentTime());
 timeline.on("currentTimeTick", onCurrentTimeTick);
 timeline.on("rangechanged", function(props) {
   liveView = !props.byUser;

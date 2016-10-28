@@ -1,13 +1,17 @@
+var timeline = null;
 var visGroups = new vis.DataSet(); // main data to show
 var visItems = new vis.DataSet();
 var liveView = true;
 var liveData = false;
 var timeSynced = false; // sync time between local and server
+var previous = 0;
+var checkpoint = null;
+var activeSource = null;
+var previousSource = null;
 
 function createTimeline(container, height) {
     // DOM element where the Timeline will be attached
     var ele = document.getElementById(container);
-    console.log(height);
     // Configuration for the Timeline
     var options = {
         height: height,
@@ -41,8 +45,6 @@ function createTimeline(container, height) {
     return timeline;
 }
 
-var previous = 0;
-var checkpoint = null;
 function onCurrentTimeTick(props) {
     var current = timeline.getCurrentTime().getTime();
     var refreshInterval = 1000;
@@ -64,10 +66,15 @@ function onCurrentTimeTick(props) {
     };
 }
 
+var updateDataLastFinished = true;
+
 function updateDataItems(max) {
-    var prefix = "/source/" + getCookie("activeSource").id;
+    if (!activeSource) return;
+    var prefix = "/source/" + activeSource;
     var url = prefix + "/timeline?limit=" + max + "&c=" + (checkpoint ? checkpoint + 1 : 0);
+    updateDataLastFinished = false;
     $.get(url, function(res, status, xhr) {
+        updateDataLastFinished = true;
         // console.log("checkpoint: " + checkpoint + " items: " + res.items.length)
         // progressing jobs
         for (var i = 0; i < res.items.length; i++) {
@@ -78,14 +85,25 @@ function updateDataItems(max) {
             updateCheckpoint(item.start);
             updateCheckpoint(item.end)
         }
-        // update new data
-        visItems.update(res.items);
-        visGroups.update(res.groups);
+        // update data view
+        var reset = activeSource != previousSource;
+        if (reset) {
+            visItems.clear(); visItems.update(res.items);
+            visGroups.clear(); visGroups.update(res.groups);
+            timeSynced = false;
+            previousSource = activeSource;
+        } else {
+            visItems.update(res.items);
+            visGroups.update(res.groups);
+        }
         // sync server time
         if (!timeSynced) {
             var server = new Date().getTime();
             for (i = 0; i < res.items.length; i++) {
                 var item = res.items[i];
+                if (item.start != null && item.start > server) {
+                    server = item.start;
+                };
                 if (item.end != null && item.end > server) {
                     server = item.end;
                 };
@@ -105,10 +123,15 @@ function updateCheckpoint(t) {
     }
 }
 
+var updateStatLastFinished = true;
+
 function updateJobStat() {
-    var prefix = "/source/" + getCookie("activeSource").id;
+    if (!activeSource) return;
+    var prefix = "/source/" + activeSource;
     var url = prefix + "/stats";
+    updateStatLastFinished = false;
     $.get(url, function(rsp, status, xhr) {
+        updateStatLastFinished = true;
         var stats = rsp.stats;
         $("#statJobs").text(stats.numJobs);
         $("#statStages").text(stats.numStages);
@@ -126,12 +149,4 @@ function resizeWindow(currentMillisec, width) {
     var start = currentMillisec - width * 0.875
     var end = currentMillisec + width * 0.125
     return { start: start, end: end }
-}
-
-function getCookie(key) {
-    return eval('(' + Cookies.get(key) + ')');
-}
-
-function setCookie(key, val) {
-    Cookies.set(key, val);
 }

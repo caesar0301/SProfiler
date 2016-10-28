@@ -164,9 +164,9 @@ $.getJSON("sources/json", function(data) {
   $.each(data, function(key, src) {
     sources.push({
       id: src.id,
-      address: src.host,
+      address: "<a href=" + src.host + ">" + src.host + "</a>",
       age: new Date().getTime() - parseInt(src.added),
-      user: src.user,
+      user: src.user.toUpperCase(),
       status: src.active,
       action: src,
     })

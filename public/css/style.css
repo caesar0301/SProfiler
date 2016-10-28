@@ -14,12 +14,6 @@
   position: absolute;
 }
 
-.cvHeadCinactive {
-  color: #FFFFFF;
-  background-color: #CC00FF;
-  overflow: hidden;
-}
-
 .box {
   background: rgba(0, 0, 0, 0.61);
   padding: 10px;
@@ -28,15 +22,53 @@
   display: none;
 }
 
-.boxHeader {
+.box-header {
   font-size: 2em;
 }
 
-.mainMenu {
-  position: absolute;
+.box-header-white {
+  font-size: 2em;
+  color: white;
+}
+
+.box-body {
+  font-size: 1em;
+  color: white;
+}
+
+.menu-button {
+  position: fixed;
   bottom: 30px;
   right: 50px;
+  -webkit-transition: all 0.5s linear;
 }
+
+.menu-button:hover {
+  color: #FFF;
+}
+
+.menu-panel {
+  position: fixed;
+  background-color: #222;
+  border: 2px;
+  bottom: 75px;
+  right: 25px;
+  width: 350px;
+  height: 60%;
+}
+
+.source-link {
+  font-size: 1.2em;
+}
+
+.source-link-busy {
+  color: #0F0;
+}
+
+.source-host {
+  margin-left: 5px;
+}
+
 
 /**
  * Table

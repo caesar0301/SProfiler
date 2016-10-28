@@ -10,7 +10,7 @@ var dataInterval = 1000;
 
 function Source(host, user, password, active) {
     this.id = utils.generateRandomID();
-    this.host = host;
+    this.host = utils.validateHost(host);
     this.user = user;
     this.passwd = password;
     this.registers = 0;

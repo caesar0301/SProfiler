@@ -2,11 +2,13 @@ var sprintf = require('sprintf');
 
 function validateHost(host) {
     var valid = host;
-    if (!(valid.startsWith('http://') || valid.startsWith('https://'))) {
-        valid = "http://" + valid;
-    }
-    if (valid.endsWith('/')) {
-        valid = valid.substring(0, valid.length - 1);
+    if (valid) {
+        if (!(valid.startsWith('http://') || valid.startsWith('https://'))) {
+            valid = "http://" + valid;
+        }
+        if (valid.endsWith('/')) {
+            valid = valid.substring(0, valid.length - 1);
+        }
     }
     return valid;
 }
