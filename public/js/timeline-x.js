@@ -8,6 +8,8 @@ var previous = 0;
 var checkpoint = null;
 var activeSource = null;
 var previousSource = null;
+var updateDataLastFinished = true;
+var updateStatLastFinished = true;
 
 function createTimeline(container, height) {
     // DOM element where the Timeline will be attached
@@ -50,7 +52,7 @@ function onCurrentTimeTick(props) {
     var refreshInterval = 1000;
     var windowSize = 60000;
     var windowAnimation = 2000;
-    var updateMaxNum = 1000;
+    var updateMaxNum = 200;
     if (current - previous >= refreshInterval) {
         if (liveView) {
             var win = resizeWindow(current, windowSize);
@@ -59,37 +61,42 @@ function onCurrentTimeTick(props) {
             });
         };
         if (liveData) {
-            updateDataItems(updateMaxNum);
-            updateJobStat();
+            if (updateDataLastFinished) {
+                updateDataItems(updateMaxNum);
+            }
+            if (updateStatLastFinished) {
+                updateJobStat();
+            }
         }
         previous = current;
     };
 }
 
-var updateDataLastFinished = true;
-
 function updateDataItems(max) {
     if (!activeSource) return;
     var prefix = "/source/" + activeSource;
-    var url = prefix + "/timeline?limit=" + max + "&c=" + (checkpoint ? checkpoint + 1 : 0);
+    var url = prefix + "/timeline?limit=" + max + "&c=" + (checkpoint ? checkpoint : 0);
+    console.log(url)
     updateDataLastFinished = false;
     $.get(url, function(res, status, xhr) {
+        console.log(status)
         updateDataLastFinished = true;
         // console.log("checkpoint: " + checkpoint + " items: " + res.items.length)
-        // progressing jobs
         for (var i = 0; i < res.items.length; i++) {
             var item = res.items[i]
+            updateCheckpoint(item.start);
+            updateCheckpoint(item.end)
             if (item.end == null) {
                 item.end = timeline.getCurrentTime().getTime();
             }
-            updateCheckpoint(item.start);
-            updateCheckpoint(item.end)
         }
         // update data view
         var reset = activeSource != previousSource;
         if (reset) {
-            visItems.clear(); visItems.update(res.items);
-            visGroups.clear(); visGroups.update(res.groups);
+            visItems.clear();
+            visItems.update(res.items);
+            visGroups.clear();
+            visGroups.update(res.groups);
             timeSynced = false;
             previousSource = activeSource;
         } else {
@@ -97,7 +104,7 @@ function updateDataItems(max) {
             visGroups.update(res.groups);
         }
         // sync server time
-        if (!timeSynced) {
+        if (!timeSynced && res.items.length > 0) {
             var server = new Date().getTime();
             for (i = 0; i < res.items.length; i++) {
                 var item = res.items[i];
@@ -122,8 +129,6 @@ function updateCheckpoint(t) {
         checkpoint = t;
     }
 }
-
-var updateStatLastFinished = true;
 
 function updateJobStat() {
     if (!activeSource) return;

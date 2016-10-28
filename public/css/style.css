@@ -39,7 +39,7 @@
 .menu-button {
   position: fixed;
   bottom: 30px;
-  right: 50px;
+  left: 50px;
   -webkit-transition: all 0.5s linear;
 }
 
@@ -52,9 +52,9 @@
   background-color: #222;
   border: 2px;
   bottom: 75px;
-  right: 25px;
+  left: 50px;
   width: 350px;
-  height: 60%;
+  max-height: 50%;
 }
 
 .source-link {

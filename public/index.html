@@ -118,7 +118,6 @@ $('.box').on('click', '.source-link', function() {
     activeSource = null;
     liveData = false;
   } else {
-    console.log("alive")
     $().toastmessage('showNoticeToast', 'Attach on source ' + this.id);
     Cookies.set("activeSource", this.id);
     activeSource = this.id;

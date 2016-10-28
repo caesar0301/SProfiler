@@ -4,7 +4,8 @@ var globalConfig = {
     defaultUser: 'hive',
     defaultPass: '',
     dbserver: "mongodb://localhost:27017",
-    dbname: 'inceptor'
+    dbname: 'inceptor',
+    logLevel: 'DEBUG',
 }
 
 module.exports = globalConfig;

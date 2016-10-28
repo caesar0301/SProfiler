@@ -27,12 +27,6 @@ function initialize(callback) {
         if (callback && typeof(callback) == 'function')
             callback(p_db);
     });
-    daemon = setInterval(doDaemon, 1000);
-}
-
-function doDaemon() {
-    if (initialized) {
-    }
 }
 
 function getInstance(callback) {

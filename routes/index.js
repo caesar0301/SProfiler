@@ -1,7 +1,7 @@
 var express = require('express');
 var path = require('path')
 var router = express.Router();
-var mongodb = require('../services/mongodb');
+var mongo = require('mongodb').MongoClient;
 var inceptor = require('../services/inceptor');
 var config = require('../common/config');
 var utils = require('../common/utils');
@@ -27,7 +27,7 @@ router.get('/sources/json', function(req, res) {
     for (var i = 0; i < sources.length; i++) {
         srcstr.push(sources[i].toString(false));
     }
-    res.json(srcstr);
+    res.status(200).json(srcstr);
 });
 
 /**
@@ -45,7 +45,7 @@ router.post('/source', function(req, res) {
     var active = req.body.active == true ? true : false;
     var s = inceptor.createSource(host, user, pass, active);
     if (s == null) {
-        res.status(500).json({"error": "duplicated"});
+        res.status(500).json({ "error": "duplicated" });
     } else {
         res.status(200).json(s.toString(false));
     }
@@ -62,7 +62,7 @@ router.get('/source/:sourceId/delete', function(req, res) {
         res.status(500).json({ "error": "There is no source " + req.params['sourceId'] });
     } else {
         inceptor.removeSource(source.id);
-        res.status(200).json({"result": "success"});
+        res.status(200).json({ "result": "success" });
     }
 });
 
@@ -72,9 +72,9 @@ router.post('/source/:sourceId/update', function(req, res) {
         res.status(500).json({ "error": "There is no source " + req.params['sourceId'] });
     } else if (Object.keys(req.body).length > 0) {
         inceptor.updateSource(source.id, req.body);
-        res.status(200).json({"result": "success"});
+        res.status(200).json({ "result": "success" });
     } else {
-        res.status(500).json({"error": "empty body data."});
+        res.status(500).json({ "error": "empty body data." });
     }
 });
 
@@ -120,7 +120,11 @@ function retrieveJobs(collection, checkpoint, limit, callback) {
             ['submissionTime', -1]
         ],
     };
-    mongodb.getInstance(function(db) {
+    mongo.connect(config.dbserver + "/" + config.dbname, function(err, db) {
+        if (err) {
+            logger.error(err.toString());
+            return;
+        }
         db.collection(collection).find(query, option).toArray(function(err, docs) {
             callback(err, docs);
         });
@@ -136,7 +140,9 @@ router.get('/source/:sourceId/timeline', function(req, res) {
     var checkpoint = parseInt(req.query['c']);
     var limit = parseInt(req.query['limit']);
     retrieveJobs(source.jobs, checkpoint, limit, function(err, jobs) {
-        res.status(200).json(utils.convertJobsToTimeline(source.id, jobs));
+        var result = utils.convertJobsToTimeline(source.id, jobs);
+        // console.log(result.items)
+        res.status(200).json(result);
     });
 
 });
@@ -147,10 +153,14 @@ router.get('/source/:sourceId/stats', function(req, res) {
         res.status(500).json({ "error": "There is no source " + req.params['sourceId'] });
         return;
     }
-    mongodb.getInstance(function(db) {
+    mongo.connect(config.dbserver + "/" + config.dbname, function(err, db) {
+        if (err) {
+            logger.error(err.toString());
+            return;
+        }
         db.collection(source.jobs).count(function(err, numJobs) {
             db.collection(source.stages).count(function(err, numStages) {
-                res.json({
+                res.status(200).json({
                     stats: {
                         numJobs: numJobs,
                         numStages: numStages,
