@@ -92,12 +92,13 @@ $button.click(function() {
 function createPanelTable() {
   $.getJSON("sources/json", function(data) {
     sources = $.map(data, function(src, key) {
-      var status = src.active ? 'glyphicon-play' : 'glyphicon-stop'
+      var status = src.active ? 'glyphicon-play' : 'glyphicon-stop';
+      var linked = activeSource == src.id ? ' source-link-busy' : '';
       return {
         id: src.id,
         host: '<span class="glyphicon '+ status +'"><span><a style="margin-left: 5px" href=' + src.host + '>' + src.host + '</a>',
         user: src.user.toUpperCase(),
-        view: '<div class="source-link text-center" id="' + src.id + '"><span class="glyphicon glyphicon-transfer"></span></div>',
+        view: '<div class="source-link text-center'+ linked +'" id="' + src.id + '"><span class="glyphicon glyphicon-transfer"></span></div>',
       };
     });
     $table.bootstrapTable('load', sources);
@@ -117,6 +118,7 @@ $('.box').on('click', '.source-link', function() {
     activeSource = null;
     liveData = false;
   } else {
+    console.log("alive")
     $().toastmessage('showNoticeToast', 'Attach on source ' + this.id);
     Cookies.set("activeSource", this.id);
     activeSource = this.id;
