@@ -24,6 +24,7 @@
     "morgan": "~1.7.0",
     "request": "^2.75.0",
     "serve-favicon": "~2.3.0",
+    "sleep": "^4.0.0",
     "sprintf": "^0.1.5"
   }
 }

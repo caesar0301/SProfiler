@@ -64,6 +64,9 @@ Context.prototype.createSource = function(host, user, passwd, active) {
     }
     if (!(user in this.sources[host])) {
         this.sources[host][user] = ns;
+        if (ns.active == true) {
+            ns.enable();
+        }
         var sourcesDB = this.sourcesDB;
         mongodb.getInstance(function(db) {
             db.collection(sourcesDB).insertOne(ns.toString(true), { w: 1 }, function(err) {
@@ -111,7 +114,6 @@ Context.prototype.removeSource = function(sourceId) {
 Context.prototype.enableSource = function(sourceId) {
     var s = this.getSourceById(sourceId);
     if (s) {
-        logger.info("Start monitoring service on source " + s.id);
         s.enable();
     }
 }
@@ -119,7 +121,6 @@ Context.prototype.enableSource = function(sourceId) {
 Context.prototype.disableSource = function(sourceId) {
     var source = this.getSourceById(sourceId);
     if (source) {
-        logger.info("Stop monitoring service on source " + source.id);
         source.disable();
     }
 }

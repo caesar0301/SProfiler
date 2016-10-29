@@ -1,37 +1,13 @@
 var logger = require('../common/logger');
-var backend = require('./backend');
 var Context = require('./Context')
-var scheduler = null;
-var schedulerInterval = 500;
-var dataInterval = 1000;
-
-logger.info("Initialized with new context.")
-var context = new Context();
 
 /**
  * Start the monitor service.
  */
 function start() {
     context.load(function() {
-        scheduler = setInterval(doScheduler, schedulerInterval);
         logger.info("Inceptor service started.");
     });
-}
-
-function doScheduler() {
-    var sources = context.sources;
-    for (host in sources) {
-        for (user in sources[host]) {
-            var s = sources[host][user];
-            if (!s.active) {
-                continue;
-            }
-            if (s.timeout == null) {
-                logger.info("New monitor service on " + host);
-                s.timeout = setInterval(backend.trigger, dataInterval, s);
-            }
-        }
-    }
 }
 
 /**
@@ -41,20 +17,13 @@ function stop() {
     var sources = context.sources;
     for (host in sources) {
         for (user in sources[host]) {
-            var s = sources[host][user];
-            if (s.timeout != null) {
-                logger.info("Stopped monitor service on " + host);
-                clearInterval(s.timeout);
-            }
-            s.reset();
+            sources[host][user].disable();
         }
+        logger.info("The inceptor service has been terminated. (What a nice day!)");
     }
-    if (scheduler != null) {
-        clearInterval(scheduler);
-        scheduler = null;
-    }
-    logger.info("The inceptor service has been terminated. (What a nice day!)");
 }
+
+var context = new Context();
 
 var inceptor = {
     context: context,

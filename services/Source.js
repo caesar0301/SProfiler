@@ -1,4 +1,7 @@
 var assert = require('assert');
+var sleep = require('sleep');
+var request = require('request');
+var dateformat = require('dateformat');
 var utils = require('../common/utils');
 var logger = require('../common/logger');
 var config = require('../common/config');
@@ -23,6 +26,7 @@ function Source(host, user, password, active) {
     this.timeout = null;
     this.cachedJobs = {};
     this.cachedStages = {};
+    this.syncThread = null;
 }
 
 Source.prototype.retrieveJobs = function(completedAfter, limit, callback) {
@@ -152,6 +156,8 @@ Source.prototype.addJobToCache = function(job) {
         });
         for (var i = 0; i < Math.min(purgeNum, sorted.length); i++) {
             // console.log(sorted[i].id)
+            var removed = this.cachedJobs[sorted[i].id];
+            this.upsertOneJob(removed);
             delete this.cachedJobs[sorted[i].id];
         }
         logger.warn("purged left " + Object.keys(this.cachedJobs).length)
@@ -165,7 +171,6 @@ Source.prototype.upsertOneJob = function(job) {
         db.collection(jobDBName).updateOne({
             globalId: job.globalId
         }, job, { upsert: true, w: 1 });
-        // logger.debug("[J] #" + job.jobId + " upserted (" + job.status + ")");
     });
 }
 
@@ -180,7 +185,6 @@ Source.prototype.upsertJobs = function(jobs) {
             db.collection(jobDBName).updateOne({
                 globalId: job.globalId
             }, job, { upsert: true, w: 1 });
-            // logger.debug("[J] #" + job.jobId + " upserted (" + job.status + ")");
         };
     });
 }
@@ -205,6 +209,9 @@ Source.prototype.addStageToCache = function(stage) {
             return x.submissionTime - y.submissionTime;
         });
         for (var i = 0; i < Math.min(purgeNum, sorted.length); i++) {
+            // make sure the data is saved to db
+            var removed = this.cachedStages[sorted[i].gid];
+            this.upsertOneStage(removed);
             delete this.cachedStages[sorted[i].gid];
         }
     }
@@ -217,7 +224,6 @@ Source.prototype.upsertOneStage = function(stage) {
         db.collection(stageDBName).updateOne({
             globalId: stage.globalId
         }, stage, { upsert: true, w: 1 });
-        // logger.debug("[S] #" + stage.stageId + " upserted (" + stage.status + ")");
     });
 }
 
@@ -232,7 +238,6 @@ Source.prototype.upsertStages = function(stages) {
             db.collection(stageDBName).updateOne({
                 globalId: stage.globalId
             }, stage, { upsert: true, w: 1 });
-            // logger.debug("[S] #" + stage.stageId + " upserted (" + stage.status + ")");
         };
     });
 }
@@ -290,7 +295,11 @@ Source.prototype.reset = function() {
 
 Source.prototype.disable = function() {
     if (this.timeout != null) {
+        logger.info("Stop monitoring service on source " + this.id);
         clearInterval(this.timeout);
+    }
+    if (this.syncThread != null) {
+        clearInterval(this.syncThread);
     }
     this.timeout = null;
     this.active = false;
@@ -299,6 +308,28 @@ Source.prototype.disable = function() {
 
 Source.prototype.enable = function() {
     this.active = true;
+    if (this.timeout == null) {
+        logger.info("Start monitoring service on source " + this.id);
+        this.timeout = setInterval(this.trigger, config.dataInterval, this);
+    }
+    if (this.syncThread == null) {
+        // Dump cached data into db periodically.
+        var doDump = function(src) {
+            var cachedJobs = src.cachedJobs;
+            var cachedStages = src.cachedStages;
+            var jobs = Object.keys(cachedJobs).map(function(k) {
+                return cachedJobs[k];
+            });
+            var stages = Object.keys(cachedStages).map(function(k) {
+                return cachedStages[k];
+            });
+            src.upsertJobs(jobs);
+            logger.debug(jobs.length + ' jobs flushed to db.');
+            src.upsertStages(stages);
+            logger.debug(stages.length + ' stages flushed to db.');
+        };
+        this.syncThread = setInterval(doDump, config.syncInterval, this);
+    }
     return this;
 }
 
@@ -308,6 +339,119 @@ Source.prototype.updateStatus = function(err) {
         this.status = err.toString();
     }
     return this;
+}
+
+Source.prototype.updateJobCheckpoint = function(t) {
+    if (this.jobCheckpoint == null) {
+        this.jobCheckpoint = t;
+    } else if (t != null && t > this.jobCheckpoint) {
+        this.jobCheckpoint = t;
+    }
+}
+
+Source.prototype.updateStageCheckpoint = function(t) {
+    if (this.stageCheckpoint == null) {
+        this.stageCheckpoint = t;
+    } else if (t != null && t > this.stageCheckpoint) {
+        this.stageCheckpoint = t;
+    }
+}
+
+var df = "yyyymmddHHMMss";
+var jobLastRequestFinished = true;
+var stageLastRequestFinished = true;
+
+Source.prototype.trigger = function(src) {
+    try {
+        if (jobLastRequestFinished) {
+            src.fetchJobs();
+        }
+        if (stageLastRequestFinished) {
+            src.fetchStages();
+        }
+    } catch (err) {
+        src.updateStatus(err);
+    }
+}
+
+Source.prototype.fetchJobs = function() {
+    var after = "-1";
+    var cname = this.jobDBName;
+    if (this.jobCheckpoint != null) {
+        after = this.jobCheckpoint + 1 + "L"; // offset 1ms
+    }
+    var api = this.host + "/api/jobs?userId=" + this.user + "&afterTime=" + after;
+    jobLastRequestFinished = false;
+    var self = this;
+    request(api, function(err, response, body) {
+        jobLastRequestFinished = true;
+        if (err) {
+            self.updateStatus(err);
+        } else if (response.statusCode == 401) {
+            self.updateStatus('Unauthorized!');
+        } else if (response.statusCode == 200) {
+            var jobs = {};
+            try {
+                jobs = JSON.parse(body);
+            } catch (err) {
+                self.updateStatus(err);
+                return;
+            }
+
+            logger.info(jobs.length + " jobs fetched (" + self.user + ") " +
+                "[" + self.host + ", " + self.user + ", " + after + "]" );
+
+            var checkpoint = self.jobCheckpoint;
+            for (var i = 0; i < jobs.length; i++) {
+                var job = jobs[jobs.length - i - 1];
+                // remove ambigutiy of job ids among system restarts
+                job.globalId = job.jobGroup + "_" + job.jobId
+                self.updateJobCheckpoint(job.submissionTime);
+                self.updateJobCheckpoint(job.completionTime);
+                self.addJobToCache(job);
+            }
+        }
+    }).auth(this.user, this.passwd, false);
+}
+
+Source.prototype.fetchStages = function() {
+    var after = "-1";
+    var cname = this.stageDBName;
+    if (this.stageCheckpoint != null) {
+        after = this.stageCheckpoint + 1 + "L"; // offset 1ms
+    }
+    var api = this.host + "/api/stages?details=true&userId=" + this.user + "&afterTime=" + after;
+    var self = this;
+    stageLastRequestFinished = false;
+    request(api, function(err, response, body) {
+        stageLastRequestFinished = true;
+        if (err) {
+            self.updateStatus(err);
+        } else if (response.statusCode == 401) {
+            self.updateStatus('Unauthorized!');
+        } else if (response.statusCode == 200) {
+            var stages = {};
+            try {
+                stages = JSON.parse(body);
+            } catch (err) {
+                self.updateStatus(err);
+                return;
+            }
+
+            logger.info(stages.length + " stages fetched (" + self.user + ") " +
+                "[" + self.host + ", " + self.user + ", " + after + "]" );
+
+            var checkpoint = self.stageCheckpoint;
+            for (var i = 0; i < stages.length; i++) {
+                var stage = stages[stages.length - i - 1];
+                // remove ambigutiy of job ids among system restarts
+                stage.globalId = stage.userName + '_' + stage.submissionTime + '_' + stage.stageId
+                self.updateStageCheckpoint(stage.submissionTime);
+                self.updateStageCheckpoint(stage.completionTime);
+                self.addStageToCache(stage);
+            }
+        }
+    }).auth(this.user, this.passwd, false);
 }
 
 module.exports = Source;
