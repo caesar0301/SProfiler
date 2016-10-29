@@ -9,7 +9,7 @@ var defaultQueryLimit = 100;
 
 function Source(host, user, password, active) {
     this.id = utils.generateRandomID();
-    this.host = utils.validateHost(host);
+    this.host = host;
     this.user = user;
     this.passwd = password;
     this.registers = 0;
@@ -257,7 +257,7 @@ Source.prototype.toString = function(showPassword) {
     return res;
 }
 
-Source.prototype.set = function(s) {
+Source.prototype.update = function(s) {
     if ('id' in s) this.id = s.id;
     if ('host' in s) this.host = s.host;
     if ('user' in s) this.user = s.user;
@@ -274,12 +274,31 @@ Source.prototype.set = function(s) {
 }
 
 Source.prototype.reset = function() {
+    if (this.timeout != null) {
+        clearInterval(this.timeout);
+    }
     this.registers = 0;
     this.jobCheckpoint = null;
     this.stageCheckpoint = null;
-    this.timeout = null;
     this.active = false;
     this.status = null;
+    this.timeout = null;
+    this.cachedJobs = {};
+    this.cachedStages = {};
+    return this;
+}
+
+Source.prototype.disable = function() {
+    if (this.timeout != null) {
+        clearInterval(this.timeout);
+    }
+    this.timeout = null;
+    this.active = false;
+    return this;
+}
+
+Source.prototype.enable = function() {
+    this.active = true;
     return this;
 }
 
@@ -288,6 +307,7 @@ Source.prototype.updateStatus = function(err) {
         logger.error(err.toString());
         this.status = err.toString();
     }
+    return this;
 }
 
 module.exports = Source;

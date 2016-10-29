@@ -2,7 +2,7 @@
 <html>
 
 <head>
-  <title>Inceptor Scheduler Profiler</title>
+  <title>SProfiler</title>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   <script src="js/vis.min.js"></script>
   <script src="js/jquery.min.js"></script>
@@ -30,7 +30,7 @@
             <span class="sr-only">Toggle navigation</span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="/">SchedProfiler</a>
+          <a class="navbar-brand" href="/">SProfiler</a>
         </div>
       </div>
       <!-- /.container-fluid -->
@@ -70,11 +70,11 @@
                     <input type="password" class="form-control" id="password"></input>
                     <p class="help-block">Leave empty when Guardian is disabled.</p>
                   </div>
-                  <div class="checkbox">
+<!--                   <div class="checkbox">
                     <label>
-                      <input type="checkbox" id="ifTriggerSource"> Start source</input>
+                      <input type="checkbox" id="ifTriggerSource" checked> Start source</input>
                     </label>
-                  </div>
+                  </div> -->
                 </form>
               </div>
               <div class="modal-footer">
@@ -121,14 +121,12 @@ $("#saveSource").click(function() {
     $().toastmessage('showErrorToast', 'Empty username.');
     return;
   }
-  var active = $("#ifTriggerSource").val()
   var dataForm = {
     host: host,
     username: user,
     password: pass,
-    active: active ? true : false,
+    active: true,
   };
-  console.log(dataForm)
   $.post('/source', dataForm, "application/json")
     .done(function() {
       $().toastmessage('showNoticeToast', 'New source added.');

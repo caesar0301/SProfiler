@@ -1,5 +1,6 @@
 var config = require('../common/config');
 var logger = require('../common/logger');
+var utils = require('../common/utils')
 var Source = require('./Source');
 var mongodb = require('./mongodb');
 
@@ -35,6 +36,7 @@ Context.prototype.getSources = function() {
 
 Context.prototype.getSourcesByHost = function(host) {
     var res = [];
+    var host = utils.validateHost(host);
     if (host in this.sources) {
         for (user in this.sources[host]) {
             var s = this.sources[host][user];
@@ -45,6 +47,7 @@ Context.prototype.getSourcesByHost = function(host) {
 }
 
 Context.prototype.getSource = function(host, user) {
+    var host = utils.validateHost(host);
     if (host in this.sources) {
         if (user in this.sources[host]) {
             return this.sources[host][user]
@@ -54,6 +57,7 @@ Context.prototype.getSource = function(host, user) {
 }
 
 Context.prototype.createSource = function(host, user, passwd, active) {
+    var host = utils.validateHost(host);
     var ns = new Source(host, user, passwd, active);
     if (!(host in this.sources)) {
         this.sources[host] = {};
@@ -74,7 +78,7 @@ Context.prototype.createSource = function(host, user, passwd, active) {
 Context.prototype.updateSource = function(sourceId, updata) {
     var s = this.getSourceById(sourceId);
     if (!s) return;
-    s.set(updata);
+    s.update(updata);
     var sourcesDB = this.sourcesDB;
     mongodb.getInstance(function(db) {
         db.collection(sourcesDB).updateOne({ id: s.id }, s.toString(true), { w: 1 }, function(err) {
@@ -86,27 +90,38 @@ Context.prototype.updateSource = function(sourceId, updata) {
 Context.prototype.removeSource = function(sourceId) {
     var source = this.getSourceById(sourceId);
     if (!source) return;
-    delete this.sources[source.host][source.user];
+    var host = source.host;
+    var user = source.user;
+    var sources = this.sources;
     var sourcesDB = this.sourcesDB;
+    sources[host][user].disable();
     mongodb.getInstance(function(db) {
+        // remove source entry
         db.collection(sourcesDB).deleteOne({ id: source.id }, { w: 1 }, function(err) {
-            source.updateStatus(err);
+            if (!err) {
+                // remove source dbs
+                db.dropCollection(source.jobDBName);
+                db.dropCollection(source.stageDBName);
+                delete sources[host][user];
+            }
         });
     });
 }
 
 Context.prototype.enableSource = function(sourceId) {
-    this.updateSource(sourceId, { active: true });
+    var s = this.getSourceById(sourceId);
+    if (s) {
+        logger.info("Start monitoring service on source " + s.id);
+        s.enable();
+    }
 }
 
 Context.prototype.disableSource = function(sourceId) {
     var source = this.getSourceById(sourceId);
-    if (!source) return;
-    if (source.timeout != null) {
-        logger.info("Stopped monitoring service on source " + source.id);
-        clearInterval(source.timeout);
+    if (source) {
+        logger.info("Stop monitoring service on source " + source.id);
+        source.disable();
     }
-    source.reset();
 }
 
 Context.prototype.register = function(sourceId) {
@@ -135,14 +150,15 @@ Context.prototype.load = function(callback) {
         db.collection(sourcesDB).find().toArray(function(err, docs) {
             if (!err) {
                 for (var i = 0; i < docs.length; i++) {
-                    var source = docs[i];
-                    var host = source.host;
-                    var user = source.user;
+                    var s = docs[i];
+                    var host = s.host;
+                    var user = s.user;
                     if (!(host in sources)) {
                         sources[host] = {};
                     }
                     sources[host][user] = new Source(null, null, null);
-                    sources[host][user].set(source).reset();
+                    sources[host][user].update(s);
+                    sources[host][user].disable();
                 }
                 logger.info("System context configurations loaded.");
                 callback();

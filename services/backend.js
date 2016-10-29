@@ -31,7 +31,6 @@ function trigger(source) {
 function fetchJobs(source) {
     var after = "-1";
     var cname = source.jobDBName;
-    var debug = function(msg) { logger.debug("[J] " + msg) }
     if (source.jobCheckpoint != null) {
         after = source.jobCheckpoint.getTime() + 1 + "L"; // offset 1ms
     }
@@ -52,7 +51,7 @@ function fetchJobs(source) {
                 return;
             }
 
-            debug(jobs.length + " jobs fetched (" + source.user + ") " +
+            logger.info(jobs.length + " jobs fetched (" + source.user + ") " +
                 "[" + source.host + ", " + source.user + ", " + after + "]" );
 
             // process jobs data
@@ -79,7 +78,6 @@ function fetchJobs(source) {
             if (updateBatch.length > 0) {
                 source.upsertJobs(updateBatch);
             }
-            // debug("checkpoint: " + dateformat(source.jobCheckpoint, df));
         }
     }).auth(source.user, source.passwd, false);
 }
@@ -90,7 +88,6 @@ function fetchJobs(source) {
 function fetchStages(source) {
     var after = "-1";
     var cname = source.stageDBName;
-    var debug = function(msg) { logger.debug("[S] " + msg) }
     if (source.stageCheckpoint != null) {
         after = source.stageCheckpoint.getTime() + 1 + "L"; // offset 1ms
     }
@@ -111,7 +108,7 @@ function fetchStages(source) {
                 return;
             }
 
-            debug(stages.length + " stages fetched (" + source.user + ") " +
+            logger.info(stages.length + " stages fetched (" + source.user + ") " +
                 "[" + source.host + ", " + source.user + ", " + after + "]" );
 
             // process stages data
@@ -138,7 +135,6 @@ function fetchStages(source) {
             if (updateBatch.length > 0) {
                 source.upsertStages(updateBatch);
             };
-            // debug("checkpoint: " + dateformat(source.stageCheckpoint, df));
         }
     }).auth(source.user, source.passwd, false);
 }

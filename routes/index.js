@@ -42,7 +42,7 @@ router.post('/source', function(req, res) {
         res.status(500).json({ "error": "Invalid username " + user });
     }
     var pass = req.body.password ? req.body.password : config.defaultPass;
-    var active = req.body.active == true ? true : false;
+    var active = req.body.active == 'true' ? true : false;
     var s = inceptor.context.createSource(host, user, pass, active);
     if (s == null) {
         res.status(500).json({ "error": "duplicated" });
