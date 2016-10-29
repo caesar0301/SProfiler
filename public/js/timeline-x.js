@@ -68,10 +68,12 @@ function onCurrentTimeTick(props) {
 
 function updateDataItems(max) {
     var prefix = "/source/" + activeSource;
-    var url = prefix + "/timeline?limit=" + max + "&c=" + (checkpoint ? checkpoint : 0);
-    console.log(url)
+    var url = prefix + "/timeline?limit=" + max + "&c=" + (checkpoint ? checkpoint + 1 : 0);
     $.get(url, function(res, status, xhr) {
-        console.log(status)
+        if (status != 'success') {
+            return;
+        }
+        console.log(res.items)
         // console.log("checkpoint: " + checkpoint + " items: " + res.items.length)
         for (var i = 0; i < res.items.length; i++) {
             var item = res.items[i]

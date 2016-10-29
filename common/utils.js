@@ -27,15 +27,15 @@ function convertJobsToTimeline(sourceId, jobs) {
             gNames[group] = Object.keys(gNames).length
         }
         // assemble timeline item
-        var start = new Date(job.submissionTime);
-        var end = job.completionTime ? new Date(job.completionTime) : null;
-        var jobCompleted = end != null && start != null && end.getTime() > start.getTime();
+        var start = job.submissionTime;
+        var end = job.completionTime ? job.completionTime : null;
+        var jobCompleted = (end != null && start != null && end > start);
         var running = "color: #000000; border-color: #56B056; background-color: #56B056;";
         var item = {
-            id: job._id,
+            id: job.globalId,
             content: prettifyItemContent(job, jobCompleted),
-            start: start.getTime(),
-            end: jobCompleted ? end.getTime() : null,
+            start: start,
+            end: end,
             group: gNames[group],
             type: "range",
             style: jobCompleted ? null : running,

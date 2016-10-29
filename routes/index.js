@@ -111,10 +111,13 @@ router.get('/source/:sourceId/timeline', function(req, res) {
     }
     var checkpoint = parseInt(req.query['c']);
     var limit = parseInt(req.query['limit']);
-    source.retrieveJobs(checkpoint, limit, function(jobs) {
-        var result = utils.convertJobsToTimeline(source.id, jobs);
-        // console.log(result.items)
-        res.status(200).json(result);
+    source.retrieveJobs(checkpoint, limit, function(err, jobs) {
+        if (err) {
+            res.status(500).json({"error": "Server error to get timeline data. " + err.toString()});
+        } else {
+            var result = utils.convertJobsToTimeline(source.id, jobs);
+            res.status(200).json(result);
+        }
     });
 
 });

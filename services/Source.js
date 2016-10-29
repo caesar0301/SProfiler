@@ -82,6 +82,7 @@ Source.prototype.retrieveJobs = function(completedAfter, limit, callback) {
             db.collection(jobDBName).find(query, option).toArray(function(err, docs) {
                 if (err) {
                     logger.error(err.toString());
+                    callback(err, []);
                 } else {
                     logger.warn(max - result.length + " jobs concated from DB.")
                     result = result.concat(docs);
@@ -91,13 +92,13 @@ Source.prototype.retrieveJobs = function(completedAfter, limit, callback) {
                         uniqueIds.add(result[i].globalId);
                     }
                     assert(uniqueIds.size == result.length);
-                    callback(result);
+                    callback(err, result);
                 }
             });
         });
 
     } else {
-        callback(result);
+        callback(null, result);
     }
 }
 
@@ -165,7 +166,6 @@ Source.prototype.addJobToCache = function(job) {
 }
 
 Source.prototype.upsertOneJob = function(job) {
-    this.addJobToCache(job);
     var jobDBName = this.jobDBName;
     mongodb.getInstance(function(db) {
         db.collection(jobDBName).updateOne({
@@ -175,9 +175,6 @@ Source.prototype.upsertOneJob = function(job) {
 }
 
 Source.prototype.upsertJobs = function(jobs) {
-    for (var i = 0; i < jobs.length; i++) {
-        this.addJobToCache(jobs[i]);
-    }
     var jobDBName = this.jobDBName;
     mongodb.getInstance(function(db) {
         for (var i = 0; i < jobs.length; i++) {
@@ -218,7 +215,6 @@ Source.prototype.addStageToCache = function(stage) {
 }
 
 Source.prototype.upsertOneStage = function(stage) {
-    this.addStageToCache(stage);
     var stageDBName = this.stageDBName;
     mongodb.getInstance(function(db) {
         db.collection(stageDBName).updateOne({
@@ -228,9 +224,6 @@ Source.prototype.upsertOneStage = function(stage) {
 }
 
 Source.prototype.upsertStages = function(stages) {
-    for (var i = 0; i < stages.length; i++) {
-        this.addStageToCache(stages[i]);
-    }
     var stageDBName = this.stageDBName;
     mongodb.getInstance(function(db) {
         for (var i = 0; i < stages.length; i++) {
