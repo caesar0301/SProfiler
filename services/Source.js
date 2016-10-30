@@ -137,9 +137,6 @@ Source.prototype.retrieveJobsFromDB = function(completedAfter, limit, callback) 
 
 Source.prototype.addJobToCache = function(job) {
     var gid = job.globalId;
-    if (!(gid in this.cachedJobs)) {
-        this.cachedJobs[gid] = null;
-    }
     this.cachedJobs[gid] = job;
 
     var len = Object.keys(this.cachedJobs).length;
@@ -188,9 +185,6 @@ Source.prototype.upsertJobs = function(jobs) {
 
 Source.prototype.addStageToCache = function(stage) {
     var gid = stage.globalId;
-    if (!(gid in this.cachedStages)) {
-        this.cachedStages[gid] = null;
-    }
     this.cachedStages[gid] = stage;
     var len = Object.keys(this.cachedStages).length;
     if (len > config.numStagesCached * purgeRatioMax) {
