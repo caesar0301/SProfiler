@@ -8,11 +8,15 @@ var initialized = false;
 var daemon = null;
 var options = {
     db: {
-        numberOfRetries: 3,
+        native_parser:false,
     },
     server: {
         auto_reconnect: true,
-        poolSize: 50,
+        poolSize: 5,
+        socketOptions: {
+            connectTimeoutMS: 10000,
+            socketTimeoutMS: 10000,
+        },
     },
     replSet: {},
     mongos: {}

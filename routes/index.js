@@ -27,7 +27,8 @@ router.get('/sources/json', function(req, res) {
     for (var i = 0; i < sources.length; i++) {
         srcstr.push(sources[i].toString(false));
     }
-    res.status(200).json(srcstr);
+    var sorted = srcstr.sort(function(a,b) {return b.added - a.added});
+    res.status(200).json(sorted);
 });
 
 /**

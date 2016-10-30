@@ -92,7 +92,7 @@ $button.click(function() {
 function createPanelTable() {
   $.getJSON("sources/json", function(data) {
     sources = $.map(data, function(src, key) {
-      var status = src.active ? 'glyphicon-play' : 'glyphicon-stop';
+      var status = src.active ? 'glyphicon-eye-open' : 'glyphicon-eye-close';
       var linked = activeSource == src.id ? ' source-link-busy' : '';
       return {
         id: src.id,
