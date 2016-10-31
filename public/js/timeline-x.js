@@ -73,7 +73,6 @@ function updateDataItems(max) {
         if (status != 'success') {
             return;
         }
-        console.log(res.items)
         // console.log("checkpoint: " + checkpoint + " items: " + res.items.length)
         for (var i = 0; i < res.items.length; i++) {
             var item = res.items[i]
@@ -103,10 +102,10 @@ function updateDataItems(max) {
                 var item = res.items[i];
                 if (item.start != null && item.start > server) {
                     server = item.start;
-                };
+                }
                 if (item.end != null && item.end > server) {
                     server = item.end;
-                };
+                }
             }
             timeline.setCurrentTime(server);
             previous = 0;

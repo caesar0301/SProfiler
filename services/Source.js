@@ -49,7 +49,7 @@ Source.prototype.retrieveJobs = function(completedAfter, limit, callback) {
             result[cached[i].globalId] = cached[i];
         }
         if (cached[i].completionTime != null) {
-            minCtime = cached[i].completionTime < minCtime ? cached[i].completionTime : minCtime;
+            minCtime = (minCtime == null ||cached[i].completionTime < minCtime) ? cached[i].completionTime : minCtime;
         }
     }
     if (minCtime == null || minCtime > checkpoint) {
@@ -123,14 +123,14 @@ Source.prototype.retrieveJobsFromDB = function(completedAfter, limit, callback) 
 
 Source.prototype.addJobToCache = function(job) {
     var gid = job.globalId;
-    this.cachedJobs[gid] = job;
-
-    var len = Object.keys(this.cachedJobs).length;
+    var cachedJobs = this.cachedJobs;
+    cachedJobs[gid] = job;
+    var len = Object.keys(cachedJobs).length;
     if (len > config.numJobsCached * purgeRatioMax) {
         var purgeNum = parseInt(config.numJobsCached * (purgeRatioMax - purgeRatioMin));
         var cands = [];
-        for (id in this.cachedJobs) {
-            var jj = this.cachedJobs[id];
+        for (id in cachedJobs) {
+            var jj = cachedJobs[id];
             if (jj.completionTime != null) {
                 cands.push({ id: jj.globalId, stime: jj.completionTime });
             }
@@ -140,44 +140,26 @@ Source.prototype.addJobToCache = function(job) {
         });
         for (var i = 0; i < Math.min(purgeNum, sorted.length); i++) {
             // console.log(sorted[i].id)
-            var removed = this.cachedJobs[sorted[i].id];
-            this.upsertOneJob(removed);
-            delete this.cachedJobs[sorted[i].id];
+            var removed = cachedJobs[sorted[i].id];
+            console.log(removed)
+            this.upsertOneJob(removed, function(err, result) {
+                delete cachedJobs[sorted[i].id];
+            });
         }
-        logger.warn("purged left " + Object.keys(this.cachedJobs).length)
     }
 }
 
-Source.prototype.upsertOneJob = function(job) {
-    var jobDBName = this.jobDBName;
-    mongodb.getInstance(function(db) {
-        db.collection(jobDBName).updateOne({
-            globalId: job.globalId
-        }, job, { upsert: true, w: 1 });
-    });
-}
-
-Source.prototype.upsertJobs = function(jobs) {
-    var jobDBName = this.jobDBName;
-    mongodb.getInstance(function(db) {
-        for (var i = 0; i < jobs.length; i++) {
-            var job = jobs[i];
-            db.collection(jobDBName).updateOne({
-                globalId: job.globalId
-            }, job, { upsert: true, w: 1 });
-        };
-    });
-}
 
 Source.prototype.addStageToCache = function(stage) {
     var gid = stage.globalId;
-    this.cachedStages[gid] = stage;
-    var len = Object.keys(this.cachedStages).length;
+    cachedStages = this.cachedStages;
+    cachedStages[gid] = stage;
+    var len = Object.keys(cachedStages).length;
     if (len > config.numStagesCached * purgeRatioMax) {
         var purgeNum = parseInt(config.numStagesCached * (purgeRatioMax - purgeRatioMin));
         var cands = [];
-        for (id in this.cachedStages) {
-            var stage = this.cachedStages[id];
+        for (id in cachedStages) {
+            var stage = cachedStages[id];
             if (stage.completionTime != null) {
                 cands.push({ gid: gid, stime: stage.completionTime });
             }
@@ -187,30 +169,52 @@ Source.prototype.addStageToCache = function(stage) {
         });
         for (var i = 0; i < Math.min(purgeNum, sorted.length); i++) {
             // make sure the data is saved to db
-            var removed = this.cachedStages[sorted[i].gid];
-            this.upsertOneStage(removed);
-            delete this.cachedStages[sorted[i].gid];
+            var removed = cachedStages[sorted[i].gid];
+            this.upsertOneStage(removed, function(err, result) {
+                delete cachedStages[sorted[i].gid]
+            });
         }
     }
 }
 
-Source.prototype.upsertOneStage = function(stage) {
+Source.prototype.upsertOneJob = function(job, callback) {
+    var jobDBName = this.jobDBName;
+    mongodb.getInstance(function(db) {
+        db.collection(jobDBName).updateOne({
+            globalId: job.globalId
+        }, job, { upsert: true, w: 1 }, callback);
+    });
+}
+
+Source.prototype.upsertJobs = function(jobs, callback) {
+    var jobDBName = this.jobDBName;
+    mongodb.getInstance(function(db) {
+        for (var i = 0; i < jobs.length; i++) {
+            var job = jobs[i];
+            db.collection(jobDBName).updateOne({
+                globalId: job.globalId
+            }, job, { upsert: true, w: 1 }, callback);
+        };
+    });
+}
+
+Source.prototype.upsertOneStage = function(stage, callback) {
     var stageDBName = this.stageDBName;
     mongodb.getInstance(function(db) {
         db.collection(stageDBName).updateOne({
             globalId: stage.globalId
-        }, stage, { upsert: true, w: 1 });
+        }, stage, { upsert: true, w: 1 }, callback);
     });
 }
 
-Source.prototype.upsertStages = function(stages) {
+Source.prototype.upsertStages = function(stages, callback) {
     var stageDBName = this.stageDBName;
     mongodb.getInstance(function(db) {
         for (var i = 0; i < stages.length; i++) {
             var stage = stages[i];
             db.collection(stageDBName).updateOne({
                 globalId: stage.globalId
-            }, stage, { upsert: true, w: 1 });
+            }, stage, { upsert: true, w: 1 }, callback);
         };
     });
 }
@@ -288,16 +292,18 @@ Source.prototype.enable = function() {
     if (this.syncThread == null) {
         // Dump cached data into db periodically.
         var doDump = function(src) {
-            var cachedJobs = src.cachedJobs;
-            var cachedStages = src.cachedStages;
-            var jobs = Object.keys(cachedJobs).map(function(k) {
-                if (cachedJobs[k].completionTime != null)
-                    return cachedJobs[k];
-            });
-            var stages = Object.keys(cachedStages).map(function(k) {
-                if (cachedStages[k].completionTime != null)
-                    return cachedStages[k];
-            });
+            var jobs = [];
+            var stages = [];
+            for (key in src.cachedJobs) {
+                if (src.cachedJobs[key].completionTime != null) {
+                    jobs.push(src.cachedJobs[key]);
+                }
+            }
+            for (key in src.cachedStages) {
+                if (src.cachedStages[key].completionTime != null) {
+                    stages.push(src.cachedStages[key]);
+                }
+            }
             src.upsertJobs(jobs);
             logger.debug(jobs.length + ' completed jobs flushed to db.');
             src.upsertStages(stages);
