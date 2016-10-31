@@ -26,6 +26,8 @@ function Source(host, user, password, active) {
     this.timeout = null;
     this.cachedJobs = {};
     this.cachedStages = {};
+    this.cachedJobsUpdates = new Set();
+    this.cachedStagesUpdates = new Set();
     this.syncThread = null;
 }
 
@@ -124,6 +126,7 @@ Source.prototype.retrieveJobsFromDB = function(completedAfter, limit, callback) 
 Source.prototype.addJobToCache = function(job) {
     var cachedJobs = this.cachedJobs;
     cachedJobs[job.globalId] = job;
+    this.cachedJobsUpdates.add(job.globalId);
     var len = Object.keys(cachedJobs).length;
     if (len > config.numJobsCached * purgeRatioMax) {
         var purgeNum = parseInt(config.numJobsCached * (purgeRatioMax - purgeRatioMin));
@@ -142,6 +145,7 @@ Source.prototype.addJobToCache = function(job) {
         });
         for (var i = 0; i < Math.min(purgeNum, sorted.length); i++) {
             var removed = cachedJobs[sorted[i].id];
+            console.log(sorted[i].id)
             this.upsertOneJob(removed, function(err, result) {
                 if (!err) {
                     delete cachedJobs[sorted[i].id];
@@ -154,6 +158,7 @@ Source.prototype.addJobToCache = function(job) {
 Source.prototype.addStageToCache = function(stage) {
     cachedStages = this.cachedStages;
     cachedStages[stage.globalId] = stage;
+    this.cachedStagesUpdates.add(stage.globalId);
     var len = Object.keys(cachedStages).length;
     if (len > config.numStagesCached * purgeRatioMax) {
         var purgeNum = parseInt(config.numStagesCached * (purgeRatioMax - purgeRatioMin));
@@ -193,13 +198,24 @@ Source.prototype.upsertOneJob = function(job, callback) {
 
 Source.prototype.upsertJobs = function(jobs, callback) {
     var jobDBName = this.jobDBName;
+    var total = jobs.length;
+    var updateFinished = function(err) {
+        if (!err) {
+            total--;
+        } else {
+            throw err;
+        }
+    };
     mongodb.getInstance(function(db) {
         for (var i = 0; i < jobs.length; i++) {
             var job = jobs[i];
             db.collection(jobDBName).updateOne({
                 globalId: job.globalId
-            }, job, { upsert: true, w: 1 }, callback);
+            }, job, { upsert: true, w: 1 }, updateFinished);
         };
+        if (total == 0) {
+            callback(null);
+        }
     });
 }
 
@@ -214,13 +230,24 @@ Source.prototype.upsertOneStage = function(stage, callback) {
 
 Source.prototype.upsertStages = function(stages, callback) {
     var stageDBName = this.stageDBName;
+    var total = stages.length;
+    var updateFinished = function(err) {
+        if (!err) {
+            total--;
+        } else {
+            throw err;
+        }
+    };
     mongodb.getInstance(function(db) {
         for (var i = 0; i < stages.length; i++) {
             var stage = stages[i];
             db.collection(stageDBName).updateOne({
                 globalId: stage.globalId
-            }, stage, { upsert: true, w: 1 }, callback);
+            }, stage, { upsert: true, w: 1 }, updateFinished);
         };
+        if (total == 0) {
+            callback(null);
+        }
     });
 }
 
@@ -294,27 +321,36 @@ Source.prototype.enable = function() {
         logger.info("Start monitoring service on source " + this.id);
         this.timeout = setInterval(this.trigger, config.dataInterval, this);
     }
+    // Dump cached data into db periodically (only for update items in last period).
     if (this.syncThread == null) {
-        // Dump cached data into db periodically.
-        var doDump = function(src) {
+        this.syncThread = setInterval(function(src) {
             var jobs = [];
+            src.cachedJobsUpdates.forEach(function(jid) {
+                if (src.cachedJobs[jid].completionTime != null) {
+                    jobs.push(src.cachedJobs[jid]);
+                }
+            });
+            jobs.map(function(job) {
+                src.cachedJobsUpdates.delete(job.globalId);
+            });
             var stages = [];
-            for (key in src.cachedJobs) {
-                if (src.cachedJobs[key].completionTime != null) {
-                    jobs.push(src.cachedJobs[key]);
+            src.cachedStagesUpdates.forEach(function(sid) {
+                if (src.cachedStages[sid].completionTime != null) {
+                    stages.push(src.cachedStages[sid]);
                 }
-            }
-            for (key in src.cachedStages) {
-                if (src.cachedStages[key].completionTime != null) {
-                    stages.push(src.cachedStages[key]);
-                }
-            }
-            src.upsertJobs(jobs);
+            });
+            stages.map(function(stage) {
+                src.cachedStagesUpdates.delete(stage.globalId);
+            });
             logger.debug(jobs.length + ' completed jobs flushed to db.');
-            src.upsertStages(stages);
             logger.debug(stages.length + ' completed stages flushed to db.');
-        };
-        this.syncThread = setInterval(doDump, config.syncInterval, this);
+            src.upsertJobs(jobs, function(err) {
+                if (err) src.updateStatus(err);
+                src.upsertStages(stages, function(err) {
+                    if (err) src.updateStatus(err);
+                })
+            });
+        }, config.syncInterval, this);
     }
     return this;
 }
