@@ -49,7 +49,7 @@ Source.prototype.retrieveJobs = function(completedAfter, limit, callback) {
             result[cached[i].globalId] = cached[i];
         }
         if (cached[i].completionTime != null) {
-            minCtime = (minCtime == null ||cached[i].completionTime < minCtime) ? cached[i].completionTime : minCtime;
+            minCtime = (minCtime == null || cached[i].completionTime < minCtime) ? cached[i].completionTime : minCtime;
         }
     }
     if (minCtime == null || minCtime > checkpoint) {
@@ -122,9 +122,8 @@ Source.prototype.retrieveJobsFromDB = function(completedAfter, limit, callback) 
 }
 
 Source.prototype.addJobToCache = function(job) {
-    var gid = job.globalId;
     var cachedJobs = this.cachedJobs;
-    cachedJobs[gid] = job;
+    cachedJobs[job.globalId] = job;
     var len = Object.keys(cachedJobs).length;
     if (len > config.numJobsCached * purgeRatioMax) {
         var purgeNum = parseInt(config.numJobsCached * (purgeRatioMax - purgeRatioMin));
@@ -132,28 +131,29 @@ Source.prototype.addJobToCache = function(job) {
         for (id in cachedJobs) {
             var jj = cachedJobs[id];
             if (jj.completionTime != null) {
-                cands.push({ id: jj.globalId, stime: jj.completionTime });
+                cands.push({
+                    id: jj.globalId,
+                    stime: jj.completionTime
+                });
             }
         }
         var sorted = cands.sort(function(x, y) {
-            return x.completionTime - y.completionTime;
+            return x.stime - y.stime;
         });
         for (var i = 0; i < Math.min(purgeNum, sorted.length); i++) {
-            // console.log(sorted[i].id)
             var removed = cachedJobs[sorted[i].id];
-            console.log(removed)
             this.upsertOneJob(removed, function(err, result) {
-                delete cachedJobs[sorted[i].id];
+                if (!err) {
+                    delete cachedJobs[sorted[i].id];
+                }
             });
         }
     }
 }
 
-
 Source.prototype.addStageToCache = function(stage) {
-    var gid = stage.globalId;
     cachedStages = this.cachedStages;
-    cachedStages[gid] = stage;
+    cachedStages[stage.globalId] = stage;
     var len = Object.keys(cachedStages).length;
     if (len > config.numStagesCached * purgeRatioMax) {
         var purgeNum = parseInt(config.numStagesCached * (purgeRatioMax - purgeRatioMin));
@@ -161,17 +161,22 @@ Source.prototype.addStageToCache = function(stage) {
         for (id in cachedStages) {
             var stage = cachedStages[id];
             if (stage.completionTime != null) {
-                cands.push({ gid: gid, stime: stage.completionTime });
+                cands.push({
+                    id: stage.globalId,
+                    stime: stage.completionTime
+                });
             }
         }
         var sorted = cands.sort(function(x, y) {
-            return x.completionTime - y.completionTime;
+            return x.stime - y.stime;
         });
         for (var i = 0; i < Math.min(purgeNum, sorted.length); i++) {
             // make sure the data is saved to db
-            var removed = cachedStages[sorted[i].gid];
+            var removed = cachedStages[sorted[i].id];
             this.upsertOneStage(removed, function(err, result) {
-                delete cachedStages[sorted[i].gid]
+                if (!err) {
+                    delete cachedStages[sorted[i].id]
+                }
             });
         }
     }
