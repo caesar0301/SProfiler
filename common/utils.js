@@ -71,8 +71,16 @@ function generateRandomID() {
         Math.random().toString(36).substr(2, 5)).toUpperCase()
 }
 
+function valuesOf(obj) {
+    var arr = Object.keys(obj).map(function(key) {
+        return obj[key];
+    });
+    return arr;
+}
+
 module.exports = {
     validateHost: validateHost,
     convertJobsToTimeline: convertJobsToTimeline,
     generateRandomID: generateRandomID,
+    valuesOf: valuesOf,
 };

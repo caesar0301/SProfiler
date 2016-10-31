@@ -27,7 +27,8 @@ router.get('/sources/json', function(req, res) {
     for (var i = 0; i < sources.length; i++) {
         srcstr.push(sources[i].toString(false));
     }
-    var sorted = srcstr.sort(function(a,b) {return b.added - a.added});
+    var sorted = srcstr.sort(function(a, b) {
+        return b.added - a.added });
     res.status(200).json(sorted);
 });
 
@@ -99,8 +100,12 @@ router.get('/source/:sourceId/jobs', function(req, res) {
     }
     var checkpoint = parseInt(req.query['c']);
     var limit = parseInt(req.query['limit']);
-    source.retrieveJobs(checkpoint, limit, function(jobs) {
-        res.status(200).json(jobs);
+    source.retrieveJobs(checkpoint, limit, function(err, jobs) {
+        if (err) {
+            res.status(500).json({ "error": "Server error to get jobs data. " + err.toString() });
+        } else {
+            res.status(200).json(jobs);
+        }
     });
 });
 
@@ -114,7 +119,7 @@ router.get('/source/:sourceId/timeline', function(req, res) {
     var limit = parseInt(req.query['limit']);
     source.retrieveJobs(checkpoint, limit, function(err, jobs) {
         if (err) {
-            res.status(500).json({"error": "Server error to get timeline data. " + err.toString()});
+            res.status(500).json({ "error": "Server error to get timeline data. " + err.toString() });
         } else {
             var result = utils.convertJobsToTimeline(source.id, jobs);
             res.status(200).json(result);

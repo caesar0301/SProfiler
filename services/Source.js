@@ -39,19 +39,21 @@ Source.prototype.retrieveJobs = function(completedAfter, limit, callback) {
     var cached = Object.keys(cachedJobs).map(function(key) {
         return cachedJobs[key]
     });
-    var revSorted = cached.sort(function(x, y) {
-        return y.submissionTime - x.submissionTime;
-    });
-    var result = [];
+    var result = {};
+    var minCtime = null;
     for (i = 0; i < cached.length; i++) {
-        if (result.length == max) {
+        if (Object.keys(result).length == max) {
             break;
         }
         if (cached[i].completionTime == null || cached[i].completionTime > checkpoint) {
-            result.push(cached[i]);
+            result[cached[i].globalId] = cached[i];
+        }
+        if (cached[i].completionTime != null) {
+            minCtime = cached[i].completionTime < minCtime ? cached[i].completionTime : minCtime;
         }
     }
-    if (result.length < max) {
+    if (minCtime == null || minCtime > checkpoint) {
+        var resultLen = Object.keys(result).length;
         var jobDBName = this.jobDBName;
         var query = {
             $or: [{
@@ -60,20 +62,9 @@ Source.prototype.retrieveJobs = function(completedAfter, limit, callback) {
                 completionTime: null,
             }]
         };
-        if (result.length > 0) {
-            var minStime = revSorted[revSorted.length - 1].submissionTime;
-            query = {
-                submissionTime: { $lt: minStime },
-                $or: [{
-                    completionTime: { $gte: checkpoint },
-                }, {
-                    completionTime: null,
-                }],
-            };
-        }
         var option = {
             _id: false,
-            limit: max - result.length,
+            limit: (max - resultLen),
             sort: [
                 ['submissionTime', -1]
             ],
@@ -84,21 +75,16 @@ Source.prototype.retrieveJobs = function(completedAfter, limit, callback) {
                     logger.error(err.toString());
                     callback(err, []);
                 } else {
-                    logger.warn(max - result.length + " jobs concated from DB.")
-                    result = result.concat(docs);
-                    // validate result
-                    var uniqueIds = new Set();
-                    for (i = 0; i < result.length; i++) {
-                        uniqueIds.add(result[i].globalId);
-                    }
-                    assert(uniqueIds.size == result.length);
-                    callback(err, result);
+                    logger.warn(docs.length + " jobs concated from DB.")
+                    docs.map(function(d) {
+                        result[d.globalId] = d;
+                    })
+                    callback(err, utils.valuesOf(result));
                 }
             });
         });
-
     } else {
-        callback(null, result);
+        callback(null, utils.valuesOf(result));
     }
 }
 
@@ -146,11 +132,11 @@ Source.prototype.addJobToCache = function(job) {
         for (id in this.cachedJobs) {
             var jj = this.cachedJobs[id];
             if (jj.completionTime != null) {
-                cands.push({ id: jj.globalId, stime: jj.submissionTime });
+                cands.push({ id: jj.globalId, stime: jj.completionTime });
             }
         }
         var sorted = cands.sort(function(x, y) {
-            return x.submissionTime - y.submissionTime;
+            return x.completionTime - y.completionTime;
         });
         for (var i = 0; i < Math.min(purgeNum, sorted.length); i++) {
             // console.log(sorted[i].id)
@@ -193,11 +179,11 @@ Source.prototype.addStageToCache = function(stage) {
         for (id in this.cachedStages) {
             var stage = this.cachedStages[id];
             if (stage.completionTime != null) {
-                cands.push({ gid: gid, stime: stage.submissionTime });
+                cands.push({ gid: gid, stime: stage.completionTime });
             }
         }
         var sorted = cands.sort(function(x, y) {
-            return x.submissionTime - y.submissionTime;
+            return x.completionTime - y.completionTime;
         });
         for (var i = 0; i < Math.min(purgeNum, sorted.length); i++) {
             // make sure the data is saved to db
@@ -305,15 +291,17 @@ Source.prototype.enable = function() {
             var cachedJobs = src.cachedJobs;
             var cachedStages = src.cachedStages;
             var jobs = Object.keys(cachedJobs).map(function(k) {
-                return cachedJobs[k];
+                if (cachedJobs[k].completionTime != null)
+                    return cachedJobs[k];
             });
             var stages = Object.keys(cachedStages).map(function(k) {
-                return cachedStages[k];
+                if (cachedStages[k].completionTime != null)
+                    return cachedStages[k];
             });
             src.upsertJobs(jobs);
-            logger.debug(jobs.length + ' jobs flushed to db.');
+            logger.debug(jobs.length + ' completed jobs flushed to db.');
             src.upsertStages(stages);
-            logger.debug(stages.length + ' stages flushed to db.');
+            logger.debug(stages.length + ' completed stages flushed to db.');
         };
         this.syncThread = setInterval(doDump, config.syncInterval, this);
     }
@@ -386,7 +374,7 @@ Source.prototype.fetchJobs = function() {
             }
 
             logger.info(jobs.length + " jobs fetched (" + self.user + ") " +
-                "[" + self.host + ", " + self.user + ", " + after + "]" );
+                "[" + self.host + ", " + self.user + ", " + after + "]");
 
             var checkpoint = self.jobCheckpoint;
             for (var i = 0; i < jobs.length; i++) {
@@ -426,7 +414,7 @@ Source.prototype.fetchStages = function() {
             }
 
             logger.info(stages.length + " stages fetched (" + self.user + ") " +
-                "[" + self.host + ", " + self.user + ", " + after + "]" );
+                "[" + self.host + ", " + self.user + ", " + after + "]");
 
             var checkpoint = self.stageCheckpoint;
             for (var i = 0; i < stages.length; i++) {
