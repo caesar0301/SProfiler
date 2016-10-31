@@ -28,7 +28,8 @@ router.get('/sources/json', function(req, res) {
         srcstr.push(sources[i].toString(false));
     }
     var sorted = srcstr.sort(function(a, b) {
-        return b.added - a.added });
+        return b.added - a.added
+    });
     res.status(200).json(sorted);
 });
 
@@ -139,14 +140,20 @@ router.get('/source/:sourceId/stats', function(req, res) {
             logger.error(err.toString());
             return;
         }
+        var result = function(numJobs, numStages, s) {
+            var stats = {
+                numJobs: numJobs,
+                numStages: numStages,
+            };
+            var info = source.toString(false);
+            return {
+                stats: stats,
+                info: info,
+            }
+        }
         db.collection(source.jobDBName).count(function(err, numJobs) {
             db.collection(source.stageDBName).count(function(err, numStages) {
-                res.status(200).json({
-                    stats: {
-                        numJobs: numJobs,
-                        numStages: numStages,
-                    },
-                });
+                res.status(200).json(result(numJobs, numStages, source));
             });
         });
     });

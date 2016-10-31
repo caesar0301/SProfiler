@@ -70,6 +70,13 @@
             </table>
           </div>
         </div>
+        <div class="active-panel box" style="display: block;" id="activePanel">
+          <div class="box-header-white"><span id="activeHost">***</span></div>
+          <div class="box-body">
+            <p>Jobs: <span id="statJobs"></span></p>
+            <p>Stages: <span id="statStages"></span></p>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -88,24 +95,7 @@ $button.click(function() {
   }
 });
 
-// create table
-function createPanelTable() {
-  $.getJSON("sources/json", function(data) {
-    sources = $.map(data, function(src, key) {
-      var status = src.active ? 'glyphicon-eye-open' : 'glyphicon-eye-close';
-      var linked = activeSource == src.id ? ' source-link-busy' : '';
-      return {
-        id: src.id,
-        host: '<span class="glyphicon '+ status +'"><span><a style="margin-left: 5px" href=' + src.host + '>' + src.host + '</a>',
-        user: src.user.toUpperCase(),
-        view: '<div class="source-link text-center'+ linked +'" id="' + src.id + '"><span class="glyphicon glyphicon-transfer"></span></div>',
-      };
-    });
-    $table.bootstrapTable('load', sources);
-  });
-}
-
-$('.box').on('click', '.source-link', function() {
+$('.box').on('click', '.menu-source-link', function() {
   var isBusy = activeSource && activeSource != 'null';
   if (isBusy && activeSource != this.id) {
     $().toastmessage('showErrorToast', 'Another source has been attached.');
@@ -123,7 +113,7 @@ $('.box').on('click', '.source-link', function() {
     activeSource = this.id;
     liveData = true;
   }
-  $(this).toggleClass('source-link-busy');
+  $(this).toggleClass('menu-source-link-busy');
 });
 </script>
 <!-- timeline -->

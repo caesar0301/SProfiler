@@ -127,9 +127,9 @@ function updateJobStat() {
     var prefix = "/source/" + activeSource;
     var url = prefix + "/stats";
     $.get(url, function(rsp, status, xhr) {
-        var stats = rsp.stats;
-        $("#statJobs").text(stats.numJobs);
-        $("#statStages").text(stats.numStages);
+        $('#activeHost').text(rsp.info.host);
+        $("#statJobs").text(rsp.stats.numJobs);
+        $("#statStages").text(rsp.stats.numStages);
     });
 }
 
