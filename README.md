@@ -42,12 +42,12 @@ This is the most convenient way to deploy SProfiler. As a prerequirement, you ne
 
 ``` bash
 docker pull tutum/mongodb
-docker run -d -p 27017:27017 -p 28017:28017 -e AUTH=no tutum/mongodb
+docker run -d -p 27017:27017 -p 28017:28017 -e AUTH=no --name mongodb tutum/mongodb
 ```
 
 * Pull image of sprofiler and start the service
 
 ``` bash
 docker pull caesar0301/sprofiler
-docker run -d -p 5050:5050 caesar0301/sprofiler
+docker run -d -p 5050:5050 --link mongodb:mongo caesar0301/sprofiler
 ```
