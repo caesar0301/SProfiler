@@ -38,11 +38,11 @@ Done!
 
 This is the most convenient way to deploy SProfiler. As a prerequirement, you need a docker env. ready. See [official doc](https://docs.docker.com/engine/installation/) about HOWTOs.
 
-* Pull image `tutum/mongodb` and run without password.
+* Pull image `mongo` and run without password.
 
 ``` bash
-docker pull tutum/mongodb
-docker run -d -p 27017:27017 -p 28017:28017 -e AUTH=no --name mongodb tutum/mongodb
+docker pull mongo
+docker run -d -p 27017:27017 -p 28017:28017 -e AUTH=no --name mongodb mongo
 ```
 
 * Pull image of sprofiler and start the service

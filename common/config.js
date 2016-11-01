@@ -16,8 +16,8 @@ var globalConfig = {
 function detectMongoServer() {
     var addr = globalConfig.mongoAddr;
     var port = port = globalConfig.mongoPort;
-    var addrEnv = process.env.MONGODB_PORT_27017_TCP_ADDR;
-    var portEnv = process.env.MONGODB_PORT_27017_TCP_PORT;
+    var addrEnv = process.env.MONGO_PORT_27017_TCP_ADDR;
+    var portEnv = process.env.MONGO_PORT_27017_TCP_PORT;
     if (addrEnv) {
         addr = addrEnv;
     }
