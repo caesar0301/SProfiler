@@ -1,48 +1,53 @@
-SchedProfiler
-==============
+SProfiler
+===========
 
-A realtime profiling tool to monitor scheduler performace of Inceptor engine.
+A realtime profiling tool for monitoring Transwarp Inceptor performance.
 
 # Prerequirements
 
-* Inceptor REST API version > **1.0.0** (Check [http://hostname:4040/api/version](http://hostname:4040/api/version))
+* TDH v5.0 (Specifically Incpetor REST version >= 1.0.1. See [http://hostname:4040/api/version](http://hostname:4040/api/version))
 
+# Source Mode
 
+A native way is cloning source code of SProfiler which sits on NodeJS and MongoDB. Here is a showcase with Ubuntu 16.04 LTS.
 
-# Quick Start
-
-**Tested on Ubuntu 16.04 LTS**
-
-* Install node.js and npm to run backend service.
+* Install MongoDB as the storage backend. Leave the default admin user with NO password (authentication added in future).
 
 ``` bash
-sudo apt install nodejs npm mongodb-server mongodb-client
-
+sudo apt install -y mongodb-server mongodb-client
 ```
 
-* Clone the project and start the service in root path.
+* Install node.js and npm
 
 ``` bash
-npm install
+sudo apt install -y nodejs nodejs-legacy npm
+```
+
+* Clone project source code and deploy on local port 5050 (configured in [projroot]/common/config.js).
+
+``` bash
+git clone git@github.com:caesar0301/sprofiler.git
+npm install --production
 npm start
 ```
 
-* Visit [http://localhost:5050](http://localhost:5050)
+Done!
 
-# Docker mode
 
-``` bash
-cd docker
-docker build --rm -t schedprofiler .
-docker run schedprofiler
-```
+# Docker Mode
 
-Checkout container's IP and visit http://IP:5050/
+This is the most convenient way to deploy SProfiler. As a prerequirement, you need a docker env. ready. See [official doc](https://docs.docker.com/engine/installation/) about HOWTOs.
+
+* Pull image `tutum/mongodb` and run without password.
 
 ``` bash
-docker inspect --format '{{ .NetworkSettings.IPAddress }}' <CONTAINER_ID>
+docker pull tutum/mongodb
+docker run -d -p 27017:27017 -p 28017:28017 -e AUTH=no tutum/mongodb
 ```
 
-# Preview
+* Pull image of sprofiler and start the service
 
-[screenshot](http://172.16.1.48:3000/xiamingc/spark-scheduler-perf/raw/77f94b5d3002b7463e7f1053fcfb806beab38a22/docs/profiler.png)
+``` bash
+docker pull caesar0301/sprofiler
+docker run -d -p 5050:5050 caesar0301/sprofiler
+```
