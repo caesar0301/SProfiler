@@ -145,7 +145,6 @@ Source.prototype.addJobToCache = function(job) {
         });
         for (var i = 0; i < Math.min(purgeNum, sorted.length); i++) {
             var removed = cachedJobs[sorted[i].id];
-            console.log(sorted[i].id)
             this.upsertOneJob(removed, function(err, result) {
                 if (!err) {
                     delete cachedJobs[sorted[i].id];
@@ -200,10 +199,12 @@ Source.prototype.upsertJobs = function(jobs, callback) {
     var jobDBName = this.jobDBName;
     var total = jobs.length;
     var updateFinished = function(err) {
-        if (!err) {
-            total--;
-        } else {
+        total--;
+        if (err) {
             throw err;
+        }
+        if (total == 0) {
+            callback(null);
         }
     };
     mongodb.getInstance(function(db) {
@@ -213,9 +214,6 @@ Source.prototype.upsertJobs = function(jobs, callback) {
                 globalId: job.globalId
             }, job, { upsert: true, w: 1 }, updateFinished);
         };
-        if (total == 0) {
-            callback(null);
-        }
     });
 }
 
@@ -232,10 +230,12 @@ Source.prototype.upsertStages = function(stages, callback) {
     var stageDBName = this.stageDBName;
     var total = stages.length;
     var updateFinished = function(err) {
-        if (!err) {
-            total--;
-        } else {
+        total--;
+        if (err) {
             throw err;
+        }
+        if (total == 0) {
+            callback(null);
         }
     };
     mongodb.getInstance(function(db) {
@@ -245,9 +245,6 @@ Source.prototype.upsertStages = function(stages, callback) {
                 globalId: stage.globalId
             }, stage, { upsert: true, w: 1 }, updateFinished);
         };
-        if (total == 0) {
-            callback(null);
-        }
     });
 }
 
@@ -342,13 +339,13 @@ Source.prototype.enable = function() {
             stages.map(function(stage) {
                 src.cachedStagesUpdates.delete(stage.globalId);
             });
-            logger.debug(jobs.length + ' completed jobs flushed to db.');
-            logger.debug(stages.length + ' completed stages flushed to db.');
             src.upsertJobs(jobs, function(err) {
                 if (err) src.updateStatus(err);
+                logger.debug(jobs.length + ' completed jobs flushed to db.');
                 src.upsertStages(stages, function(err) {
+                    logger.debug(stages.length + ' completed stages flushed to db.');
                     if (err) src.updateStatus(err);
-                })
+                });
             });
         }, config.syncInterval, this);
     }
