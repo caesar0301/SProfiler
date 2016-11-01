@@ -21,4 +21,4 @@ RUN \
 EXPOSE 5050
 ENV NODE_ENV=production PORT=5050
 
-CMD ["bash", "/usr/bin/npm start"]
+CMD /usr/bin/npm start
