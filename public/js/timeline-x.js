@@ -96,20 +96,16 @@ function updateDataItems(max) {
             visGroups.update(res.groups);
         }
         // sync server time
-        if (!timeSynced && res.items.length > 0) {
-            var server = new Date().getTime();
-            for (i = 0; i < res.items.length; i++) {
-                var item = res.items[i];
-                if (item.start != null && item.start > server) {
-                    server = item.start;
+        if (!timeSynced) {
+            var sourceTime = new Date().getTime();
+            $.get(prefix + "/systime", function(res, status, xhr) {
+                if (status == 'success') {
+                    sourceTime = res.systime
                 }
-                if (item.end != null && item.end > server) {
-                    server = item.end;
-                }
-            }
-            timeline.setCurrentTime(server);
-            previous = 0;
-            timeSynced = true;
+                timeline.setCurrentTime(sourceTime);
+                previous = 0;
+                timeSynced = true;
+            });
         }
     });
 };

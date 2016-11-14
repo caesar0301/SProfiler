@@ -6,6 +6,7 @@ var inceptor = require('../services/inceptor');
 var config = require('../common/config');
 var utils = require('../common/utils');
 var logger = require('../common/logger');
+var request = require('request');
 
 /**
  * Go to homepage
@@ -179,5 +180,36 @@ router.get('/source/:sourceId/stop', function(req, res) {
     res.redirect('/sources');
 });
 
+router.get('/source/:sourceId/version', function(req, res) {
+    var source = parseSourceId(req, 'sourceId');
+    if (source == null) {
+        res.status(500).json({ "error": "There is no source " + req.params['sourceId'] });
+        return;
+    }
+    request(source.host + "/api/version", function(err, response, body) {
+        if (response.statusCode == 200) {
+            var data = JSON.parse(body);
+            res.status(200).json({"version": data.version})
+        } else {
+            res.status(500).json({"error": "Fail to request source/api/version."})
+        }
+    }).auth(source.user, source.passwd, false);
+});
+
+router.get('/source/:sourceId/systime', function(req, res) {
+    var source = parseSourceId(req, 'sourceId');
+    if (source == null) {
+        res.status(500).json({ "error": "There is no source " + req.params['sourceId'] });
+        return;
+    }
+    request(source.host + "/api/version", function(err, response, body) {
+        if (response.statusCode == 200) {
+            var data = JSON.parse(body);
+            res.status(200).json({"systime": data.systemTime})
+        } else {
+            res.status(500).json({"error": "Fail to request source/api/version."})
+        }
+    }).auth(source.user, source.passwd, false);
+});
 
 module.exports = router;
